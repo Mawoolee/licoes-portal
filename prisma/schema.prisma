@@ -1,13 +1,221 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
-generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
-}
-
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  ATTENDANCE_OFFICER
+  TREASURER
+  FINANCE_OFFICER
+  AUDITOR
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ScanMode {
+  TIME_IN
+  TIME_OUT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+// Officer Accounts for Role-Based Access Control
+model Officer {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  roles         Role[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  approvedClaims PaymentClaim[] @relation("ApprovedByTreasurer")
+  eReceipts     EReceipt[]
+  auditLogs     AuditLog[]
+}
+
+// Canonical Student Profile
+model StudentProfile {
+  id                 String              @id @default(cuid())
+  studentNumber      String              @unique
+  fullName           String
+  program            String              // e.g., BSCE, BSCS, BSIT
+  yearLevel          Int                 // 1 to 4
+  dwclEmail          String              @unique
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  
+  identifierMappings IdentifierMapping[]
+  paymentClaims      PaymentClaim[]
+  attendanceRecords  AttendanceRecord[]
+}
+
+// Barcode & Student ID Association
+model IdentifierMapping {
+  id           String         @id @default(cuid())
+  barcodeValue String         @unique
+  studentId    String
+  student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+}
+
+// Collection Periods & Fee Items
+model CollectionPeriod {
+  id            String         @id @default(cuid())
+  name          String         // e.g. "A.Y. 2026-2027 1st Sem"
+  isActive      Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  
+  feeItems      FeeItem[]
+  paymentClaims PaymentClaim[]
+}
+
+model FeeItem {
+  id                 String           @id @default(cuid())
+  collectionPeriodId String
+  collectionPeriod   CollectionPeriod @relation(fields: [collectionPeriodId], references: [id])
+  name               String           // e.g., "Membership Fee"
+  amount             Decimal          @db.Decimal(10, 2)
+  requiresShirtSize  Boolean          @default(false)
+  isRequired         Boolean          @default(true)
+  createdAt          DateTime         @default(now())
+  
+  claimItems         ClaimItem[]
+}
+
+// Payment Claims Submitted by Students
+model PaymentClaim {
+  id                   String           @id @default(cuid())
+  collectionPeriodId   String
+  collectionPeriod     CollectionPeriod @relation(fields: [collectionPeriodId], references: [id])
+  studentId            String?
+  student              StudentProfile?  @relation(fields: [studentId], references: [id])
+  
+  submittedStudentNo   String
+  submittedFullName    String
+  dwclEmail            String
+  program              String
+  yearLevel            Int
+  shirtSize            String?
+  
+  paymentMethod        String           // Cash, GCash, Bank Transfer
+  paymentReference     String           // Reference / OR Number
+  normalizedReference  String           // Normalized for duplicate checks
+  paymentDate          DateTime
+  proofOfPaymentUrl    String           // Storage URL for proof image
+  privacyConsent       Boolean          @default(true)
+  consentTimestamp     DateTime         @default(now())
+  
+  status               PaymentStatus    @default(PENDING)
+  
+  // Treasurer Approval Fields
+  verifiedByOfficerId  String?
+  verifiedByOfficer    Officer?         @relation("ApprovedByTreasurer", fields: [verifiedByOfficerId], references: [id])
+  verificationSource   String?          // GCash, Bank Statement, Cash Logbook
+  verificationNote     String?
+  rejectionReason      String?
+  verifiedAt           DateTime?
+  
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  
+  claimItems           ClaimItem[]
+  eReceipt             EReceipt?
+}
+
+model ClaimItem {
+  id             String       @id @default(cuid())
+  paymentClaimId String
+  paymentClaim   PaymentClaim @relation(fields: [paymentClaimId], references: [id], onDelete: Cascade)
+  feeItemId      String
+  feeItem        FeeItem      @relation(fields: [feeItemId], references: [id])
+  amount         Decimal      @db.Decimal(10, 2)
+}
+
+// Electronic Receipts Generated on Approval
+model EReceipt {
+  id             String         @id @default(cuid())
+  receiptNumber  String         @unique // Sequential e.g., LICOES-2026-0001
+  paymentClaimId String         @unique
+  paymentClaim   PaymentClaim   @relation(fields: [paymentClaimId], references: [id])
+  issuedById     String
+  issuedBy       Officer        @relation(fields: [issuedById], references: [id])
+  pdfUrl         String?
+  deliveryStatus DeliveryStatus @default(QUEUED)
+  deliveryReason String?
+  issuedAt       DateTime       @default(now())
+}
+
+// Events & Attendance
+model Event {
+  id                String             @id @default(cuid())
+  name              String
+  location          String
+  windowStart       DateTime
+  windowEnd         DateTime
+  isClosed          Boolean            @default(false)
+  closedAt          DateTime?
+  createdAt         DateTime           @default(now())
+  
+  attendanceRecords AttendanceRecord[]
+}
+
+model AttendanceRecord {
+  id        String           @id @default(cuid())
+  eventId   String
+  event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  studentId String
+  student   StudentProfile   @relation(fields: [studentId], references: [id])
+  status    AttendanceStatus @default(PRESENT)
+  createdAt DateTime         @default(now())
+  
+  sessions  AttendanceSession[]
+
+  @@unique([eventId, studentId])
+}
+
+model AttendanceSession {
+  id                 String           @id @default(cuid())
+  attendanceRecordId String
+  attendanceRecord   AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+  timeIn             DateTime
+  timeOut            DateTime?
+  scannedBarcode     String
+  operationId        String           @unique
+  createdAt          DateTime         @default(now())
+}
+
+// Audit Logging
+model AuditLog {
+  id           String   @id @default(cuid())
+  officerId    String?
+  officer      Officer? @relation(fields: [officerId], references: [id])
+  action       String   // e.g., "PAYMENT_APPROVED", "ATTENDANCE_TIME_IN"
+  targetRecord String   // e.g., "PaymentClaim", "AttendanceSession"
+  recordId     String
+  previousVal  String?  @db.Text
+  newVal       String?  @db.Text
+  reason       String?
+  timestamp    DateTime @default(now())
 }
