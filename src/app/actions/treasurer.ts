@@ -3,19 +3,34 @@
 import { prisma } from '@/lib/prisma'
 import { sendEReceiptEmail } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
+import { requireOfficerRole } from '@/lib/session'
+import { Role } from '@prisma/client'
 
-interface ApprovePaymentInput {
+export interface ApprovePaymentInput {
   paymentClaimId: string
-  treasurerOfficerId: string
   verificationSource: 'GCASH' | 'BANK' | 'CASH_LOGBOOK'
   verificationNote?: string
 }
 
+// 1. Main exported Server Action called from the Client Component
 export async function approvePaymentClaim(input: ApprovePaymentInput) {
+  // Enforce Authorization: Must be ADMIN or TREASURER
+  const officer = await requireOfficerRole([Role.ADMIN, Role.TREASURER])
+
+  return await executeApproval({
+    ...input,
+    treasurerOfficerId: officer.id
+  })
+}
+
+// 2. Internal execution logic
+async function executeApproval(
+  input: ApprovePaymentInput & { treasurerOfficerId: string }
+) {
   const { paymentClaimId, treasurerOfficerId, verificationSource, verificationNote } = input
 
   try {
-    // 1. Fetch Payment Claim with related Fee Items & Student details
+    // Fetch Payment Claim with related Fee Items & Student details
     const claim = await prisma.paymentClaim.findUnique({
       where: { id: paymentClaimId },
       include: {
@@ -32,7 +47,7 @@ export async function approvePaymentClaim(input: ApprovePaymentInput) {
       return { success: false, error: 'Payment claim is already approved.' }
     }
 
-    // 2. Generate sequential Receipt Number (e.g. LICOES-2026-0001)
+    // Generate sequential Receipt Number (e.g. LICOES-2026-0001)
     const count = await prisma.eReceipt.count()
     const currentYear = new Date().getFullYear()
     const receiptNumber = `LICOES-${currentYear}-${String(count + 1).padStart(4, '0')}`
@@ -42,7 +57,7 @@ export async function approvePaymentClaim(input: ApprovePaymentInput) {
       0
     )
 
-    // 3. Perform Atomic DB Update using $transaction
+    // Perform Atomic DB Update using $transaction
     const { updatedClaim, eReceipt } = await prisma.$transaction(async (tx) => {
       const updatedClaim = await tx.paymentClaim.update({
         where: { id: paymentClaimId },
@@ -79,7 +94,7 @@ export async function approvePaymentClaim(input: ApprovePaymentInput) {
       return { updatedClaim, eReceipt }
     })
 
-    // 4. Send Automated Official E-Receipt Email via Resend
+    // Send Automated Official E-Receipt Email via Resend
     const feeItemNames = claim.claimItems.map((i) => i.feeItem.name).join(', ')
 
     try {

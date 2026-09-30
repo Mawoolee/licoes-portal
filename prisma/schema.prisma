@@ -38,6 +38,19 @@ enum DeliveryStatus {
   FAILED
 }
 
+// Alpha List Student Model
+model Student {
+  id           String   @id // Student ID (e.g., "07305868")
+  fullName     String   // e.g., "MARBELLA, Grace Santonia"
+  course       String   // e.g., "BSIT"
+  yearLevel    String   // e.g., "4"
+  section      String   // e.g., "BSIT 4"
+  academicYear String   @default("2025-2026")
+  semester     String   @default("1st Sem")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 // Officer Accounts for Role-Based Access Control
 model Officer {
   id            String         @id @default(cuid())
