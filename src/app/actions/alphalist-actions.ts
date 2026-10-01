@@ -122,22 +122,81 @@ if (extractedStudents.length === 0) {
 }
 
 // Action para sa paghahanap ng estudyante tuwing nag-i-scan sa Attendance Terminal
+// Checks in-memory map first (fast), falls back to DB if not found (handles server restarts)
 export async function lookupStudentAction(scannedId: string) {
   const cleanId = scannedId.trim()
   const paddedId = cleanId.padStart(8, '0')
   const unpaddedId = String(parseInt(cleanId, 10) || cleanId)
 
-  const found = globalStudentMap[paddedId] || globalStudentMap[unpaddedId] || globalStudentMap[cleanId]
+  // 1. Check in-memory map first (fastest path)
+  const inMemory =
+    globalStudentMap[paddedId] ||
+    globalStudentMap[unpaddedId] ||
+    globalStudentMap[cleanId]
 
-  if (found) {
-    return {
-      found: true,
-      student: found,
-    }
+  if (inMemory) {
+    return { found: true, student: inMemory }
   }
 
-  return {
-    found: false,
-    student: null,
+  // 2. Fall back to database (handles server restarts / different instances)
+  try {
+    const dbStudent = await db.student.findFirst({
+      where: {
+        OR: [
+          { id: paddedId },
+          { id: unpaddedId },
+          { id: cleanId },
+        ],
+      },
+    })
+
+    if (dbStudent) {
+      // Re-populate in-memory cache so next lookup is fast
+      const record: StudentRecord = {
+        id: dbStudent.id,
+        fullName: dbStudent.fullName,
+        course: dbStudent.course,
+        yearLevel: dbStudent.yearLevel,
+        section: dbStudent.section,
+      }
+      globalStudentMap[dbStudent.id] = record
+      globalStudentMap[String(parseInt(dbStudent.id, 10))] = record
+
+      return { found: true, student: record }
+    }
+  } catch (err) {
+    console.error('DB lookup error:', err)
+  }
+
+  return { found: false, student: null }
+}
+
+// Server action to fetch all students for the admin preview table
+export async function getStudentsAction(page = 1, pageSize = 50, search = '') {
+  try {
+    const where = search
+      ? {
+          OR: [
+            { fullName: { contains: search, mode: 'insensitive' as const } },
+            { id: { contains: search } },
+            { course: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}
+
+    const [students, total] = await Promise.all([
+      db.student.findMany({
+        where,
+        orderBy: [{ course: 'asc' }, { yearLevel: 'asc' }, { fullName: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      db.student.count({ where }),
+    ])
+
+    return { success: true, students, total, page, pageSize }
+  } catch (error) {
+    console.error('getStudentsAction error:', error)
+    return { success: false, students: [], total: 0, page, pageSize }
   }
 }

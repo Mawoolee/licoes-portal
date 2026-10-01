@@ -1,265 +1,406 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { ShieldCheck, Send, CheckCircle2, UploadCloud, Loader2, Image as ImageIcon, Banknote, Smartphone, X } from 'lucide-react'
-import { submitClaimAction } from '@/app/actions/submit-claim'
+import { useState, useRef, useEffect, useTransition } from 'react'
+import {
+  ShieldCheck, Send, CheckCircle2, UploadCloud, Loader2,
+  Image as ImageIcon, Banknote, Smartphone, X, AlertCircle,
+} from 'lucide-react'
+import { submitPaymentClaim } from '@/app/actions/student'
+
+type FeeItemOption = {
+  id: string
+  name: string
+  amount: string
+  requiresShirtSize: boolean
+  isRequired: boolean
+}
+
+type PeriodData = {
+  id: string
+  name: string
+  feeItems: FeeItemOption[]
+} | null
+
+const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+const PROGRAMS = ['BSCE (CEM)', 'BSCE (SE)', 'BSIT', 'BSCS', 'BSEE', 'BLIS']
 
 export default function SubmitClaimPage() {
-  const [loading, setLoading] = useState(false)
+  const [period, setPeriod] = useState<PeriodData>(null)
+  const [loadingPeriod, setLoadingPeriod] = useState(true)
+
+  const [paymentMethod, setPaymentMethod] = useState<'GCash' | 'Bank Transfer' | 'Cash'>('GCash')
+  const [selectedFeeIds, setSelectedFeeIds] = useState<string[]>([])
+  const [shirtSizes, setShirtSizes] = useState<Record<string, string>>({})
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [privacyConsent, setPrivacyConsent] = useState(false)
+
+  const [isPending, startTransition] = useTransition()
   const [submitted, setSubmitted] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'CASH'>('ONLINE')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0])
-      setErrorMessage('')
-    }
+  // Load active collection period + fee items on mount
+  useEffect(() => {
+    fetch('/api/active-period')
+      .then((r) => r.json())
+      .then((data) => {
+        setPeriod(data.period ?? null)
+        if (data.period?.feeItems) {
+          // Pre-select required items
+          const required = data.period.feeItems
+            .filter((f: FeeItemOption) => f.isRequired)
+            .map((f: FeeItemOption) => f.id)
+          setSelectedFeeIds(required)
+        }
+      })
+      .catch(() => setPeriod(null))
+      .finally(() => setLoadingPeriod(false))
+  }, [])
+
+  function toggleFeeItem(id: string, isRequired: boolean) {
+    if (isRequired) return // can't deselect required items
+    setSelectedFeeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
   }
 
-  const handleTriggerUpload = () => {
-    fileInputRef.current?.click()
+  function getTotal() {
+    if (!period) return 0
+    return period.feeItems
+      .filter((f) => selectedFeeIds.includes(f.id))
+      .reduce((sum, f) => sum + parseFloat(f.amount), 0)
   }
 
-  const handleRemoveFile = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setSelectedFile(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
+  function needsShirtSize() {
+    if (!period) return false
+    return period.feeItems.some((f) => f.requiresShirtSize && selectedFeeIds.includes(f.id))
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function fileToDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setErrorMessage('')
 
     if (!selectedFile) {
-      setErrorMessage('REQUIRED: Paki-upload ang larawan ng resibo / screenshot bago mag-submit.')
+      setErrorMessage('Proof of payment is required. Please upload a screenshot or photo of your receipt.')
+      return
+    }
+    if (!privacyConsent) {
+      setErrorMessage('You must agree to the privacy consent notice before submitting.')
+      return
+    }
+    if (needsShirtSize()) {
+      const shirtFee = period!.feeItems.find((f) => f.requiresShirtSize && selectedFeeIds.includes(f.id))
+      if (shirtFee && !shirtSizes[shirtFee.id]) {
+        setErrorMessage('Please select a shirt size for the Intramurals Shirt.')
+        return
+      }
+    }
+
+    const form = e.currentTarget
+    const data = new FormData(form)
+
+    // Convert file to data URL for storage (no UploadThing key required)
+    let proofUrl = ''
+    try {
+      proofUrl = await fileToDataUrl(selectedFile)
+    } catch {
+      setErrorMessage('Failed to read the uploaded file. Please try again.')
       return
     }
 
-    setLoading(true)
-    setErrorMessage('')
+    const shirtFeeId = period?.feeItems.find((f) => f.requiresShirtSize && selectedFeeIds.includes(f.id))?.id
 
-    const formData = new FormData(e.currentTarget)
-    formData.append('paymentMethod', paymentMethod)
-    if (selectedFile) {
-      formData.append('receiptFile', selectedFile)
-    }
+    startTransition(async () => {
+      const result = await submitPaymentClaim({
+        studentNumber: data.get('studentNumber') as string,
+        fullName: data.get('fullName') as string,
+        dwclEmail: data.get('dwclEmail') as string,
+        program: data.get('program') as string,
+        yearLevel: parseInt(data.get('yearLevel') as string),
+        shirtSize: shirtFeeId ? shirtSizes[shirtFeeId] : undefined,
+        paymentMethod,
+        paymentReference: data.get('paymentReference') as string,
+        paymentDate: data.get('paymentDate') as string,
+        proofOfPaymentUrl: proofUrl,
+        feeItemIds: selectedFeeIds,
+        privacyConsent: true,
+      })
 
-    const result = await submitClaimAction(formData)
-
-    setLoading(false)
-
-    if (result.success) {
-      setSubmitted(true)
-    } else {
-      setErrorMessage(result.message)
-    }
+      if (result.success) {
+        setSubmitted(true)
+      } else {
+        setErrorMessage(result.error ?? 'Submission failed. Please try again.')
+      }
+    })
   }
 
+  // ── Loading state ──────────────────────────────────────────────────────────
+  if (loadingPeriod) {
+    return (
+      <main className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+      </main>
+    )
+  }
+
+  // ── No active period ───────────────────────────────────────────────────────
+  if (!period) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+        <div className="text-center space-y-3 max-w-sm">
+          <AlertCircle className="w-12 h-12 text-amber-400 mx-auto" />
+          <h1 className="text-xl font-bold">No Active Collection Period</h1>
+          <p className="text-sm text-slate-400">
+            Membership fee submissions are currently closed. Please check back later or contact your LICOES officer.
+          </p>
+        </div>
+      </main>
+    )
+  }
+
+  // ── Success state ──────────────────────────────────────────────────────────
+  if (submitted) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center space-y-4 max-w-sm w-full">
+          <CheckCircle2 className="w-14 h-14 text-emerald-400 mx-auto" />
+          <h1 className="text-xl font-bold">Claim Submitted!</h1>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Your payment claim has been received. The LICOES Treasurer will verify your
+            payment and send an official e-receipt to your DWCL email once approved.
+          </p>
+          <button
+            onClick={() => { setSubmitted(false); setSelectedFile(null); setPrivacyConsent(false) }}
+            className="mt-2 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-2 rounded-lg transition-colors"
+          >
+            Submit Another
+          </button>
+        </div>
+      </main>
+    )
+  }
+
+  // ── Main Form ──────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
-        
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4 py-12">
+      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">
         {/* Header */}
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-1.5">
           <div className="inline-flex p-3 bg-indigo-600/10 border border-indigo-500/20 rounded-xl text-indigo-400 mb-1">
             <ShieldCheck className="w-8 h-8" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">LICOES Membership Fee Submission</h1>
-          <p className="text-xs text-slate-400">
-            Ipasok ang iyong detalye at katibayan ng pagbabayad (Online o Cash).
-          </p>
+          <h1 className="text-xl font-bold tracking-tight">LICOES Membership Fee</h1>
+          <p className="text-xs text-slate-400">{period.name}</p>
         </div>
 
-        {submitted ? (
-          <div className="bg-emerald-950/60 border border-emerald-500/40 p-6 rounded-xl text-center space-y-3 animate-in fade-in">
-            <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
-            <h2 className="text-base font-semibold text-emerald-200">Naipasa na ang iyong Claim!</h2>
-            <p className="text-xs text-emerald-300/80 leading-relaxed">
-              I-che-check ito ng LICOES Treasurer. Kapag na-verify ang resibo, makakatanggap ka ng Official E-Receipt sa iyong email.
-            </p>
-            <button
-              onClick={() => {
-                setSubmitted(false)
-                setSelectedFile(null)
-              }}
-              className="mt-2 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg transition-colors"
-            >
-              Mag-pasa ng panibagong claim
-            </button>
+        {errorMessage && (
+          <div className="bg-red-950/80 border border-red-500/50 text-red-200 p-3 rounded-lg flex items-start gap-2 text-sm">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            {errorMessage}
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-            {errorMessage && (
-              <div className="bg-red-950/80 border border-red-500/50 text-red-200 p-3 rounded-lg font-medium">
-                {errorMessage}
-              </div>
-            )}
+        )}
 
-            {/* Payment Type Switcher */}
-            <div>
-              <label className="block text-slate-300 font-medium mb-1.5">Paraan ng Pagbayad (Payment Method)</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('ONLINE')}
-                  className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border font-medium transition-all ${
-                    paymentMethod === 'ONLINE'
-                      ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  <Smartphone className="w-4 h-4" /> GCash / Online
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('CASH')}
-                  className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border font-medium transition-all ${
-                    paymentMethod === 'CASH'
-                      ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                  }`}
-                >
-                  <Banknote className="w-4 h-4" /> Cash / Physical
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-slate-300 font-medium mb-1">Student ID Number <span className="text-red-400">*</span></label>
-              <input
-                type="text"
-                name="studentId"
-                required
-                placeholder="hal. 2023-10293"
-                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-300 font-medium mb-1">Buong Pangalan (Full Name) <span className="text-red-400">*</span></label>
-              <input
-                type="text"
-                name="name"
-                required
-                placeholder="Juan Dela Cruz"
-                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-300 font-medium mb-1">DWCL Student Email <span className="text-red-400">*</span></label>
-              <input
-                type="email"
-                name="email"
-                required
-                placeholder="student@dwcl.edu.ph"
-                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none"
-              />
-            </div>
-
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          {/* Student Info */}
+          <section className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Student Information</p>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Halaga (Amount)</label>
-                <input
-                  type="text"
-                  name="amount"
-                  value="₱150.00"
-                  readOnly
-                  className="w-full bg-slate-950 border border-slate-800/60 text-slate-400 font-semibold rounded-lg p-2.5 outline-none cursor-not-allowed"
-                />
+              <div className="space-y-1">
+                <label className="text-slate-300 font-medium">Student ID Number *</label>
+                <input name="studentNumber" required placeholder="e.g. 07305868"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none font-mono" />
               </div>
-
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">
-                  {paymentMethod === 'ONLINE' ? 'GCash Ref No.' : 'OR / AR Slip No.'} <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="referenceNo"
-                  required
-                  placeholder={paymentMethod === 'ONLINE' ? 'hal. 9023182' : 'hal. OR-0812'}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none font-mono text-indigo-400"
-                />
+              <div className="space-y-1">
+                <label className="text-slate-300 font-medium">Year Level *</label>
+                <select name="yearLevel" required
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none">
+                  <option value="">Select</option>
+                  {[1,2,3,4].map((y) => <option key={y} value={y}>{y}{['st','nd','rd','th'][y-1]} Year</option>)}
+                </select>
               </div>
             </div>
+            <div className="space-y-1">
+              <label className="text-slate-300 font-medium">Full Name *</label>
+              <input name="fullName" required placeholder="SURNAME, First Name Middle Name"
+                className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-slate-300 font-medium">DWCL Email *</label>
+                <input name="dwclEmail" type="email" required placeholder="you@dwcl.edu.ph"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-slate-300 font-medium">Program *</label>
+                <select name="program" required
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none">
+                  <option value="">Select</option>
+                  {PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+            </div>
+          </section>
 
-            {/* Clickable & Required File Upload Container */}
-            <div>
-              <label className="block text-slate-300 font-medium mb-1">
-                {paymentMethod === 'ONLINE' ? 'GCash Screenshot' : 'Larawan ng Physical Resibo'} <span className="text-red-400">* Required</span>
-              </label>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-
-              <div
-                onClick={handleTriggerUpload}
-                className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
-                  selectedFile
-                    ? 'border-emerald-500/60 bg-emerald-950/20'
-                    : 'border-slate-800 hover:border-indigo-500 bg-slate-950/60'
-                }`}
-              >
-                {selectedFile ? (
-                  <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-left">
-                    <div className="flex items-center gap-2.5 overflow-hidden">
-                      <ImageIcon className="w-5 h-5 text-emerald-400 shrink-0" />
-                      <div className="truncate">
-                        <p className="text-xs font-semibold text-slate-200 truncate">{selectedFile.name}</p>
-                        <p className="text-[10px] text-slate-400">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+          {/* Fee Items */}
+          <section className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Fee Items</p>
+            <div className="space-y-2">
+              {period.feeItems.map((fee) => {
+                const selected = selectedFeeIds.includes(fee.id)
+                return (
+                  <div key={fee.id}
+                    onClick={() => toggleFeeItem(fee.id, fee.isRequired)}
+                    className={`flex items-center justify-between rounded-lg px-3 py-2.5 border cursor-pointer transition-all ${
+                      selected ? 'border-indigo-500 bg-indigo-600/10' : 'border-slate-800 bg-slate-950/60'
+                    } ${fee.isRequired ? 'cursor-default' : ''}`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                        selected ? 'border-indigo-500 bg-indigo-500' : 'border-slate-600'
+                      }`}>
+                        {selected && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-200">{fee.name}</p>
+                        {fee.isRequired && <p className="text-[10px] text-red-400">Required</p>}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleRemoveFile}
-                      className="p-1 hover:bg-slate-800 rounded-md text-slate-400 hover:text-red-400 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    <p className="font-bold text-emerald-400">PHP {parseFloat(fee.amount).toFixed(2)}</p>
                   </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <UploadCloud className="w-7 h-7 text-indigo-400 mx-auto" />
-                    <p className="text-xs font-medium text-slate-300">
-                      I-click dito para mag-upload ng larawan ng resibo
-                    </p>
-                    <p className="text-[10px] text-slate-500">
-                      PNG, JPG, o WEBP (Max 5MB)
-                    </p>
-                  </div>
-                )}
-              </div>
+                )
+              })}
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold p-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 mt-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Ipinapadala...
-                </>
+            {/* Shirt size selector */}
+            {period.feeItems.filter((f) => f.requiresShirtSize && selectedFeeIds.includes(f.id)).map((f) => (
+              <div key={f.id} className="space-y-1">
+                <label className="text-slate-300 font-medium">Shirt Size for {f.name} *</label>
+                <div className="flex gap-2 flex-wrap">
+                  {SHIRT_SIZES.map((sz) => (
+                    <button type="button" key={sz} onClick={() => setShirtSizes((p) => ({ ...p, [f.id]: sz }))}
+                      className={`px-3 py-1.5 rounded-lg border font-semibold transition-colors ${
+                        shirtSizes[f.id] === sz
+                          ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-500'
+                      }`}>{sz}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div className="flex justify-between items-center pt-1 border-t border-slate-800">
+              <span className="text-slate-400">Total</span>
+              <span className="font-bold text-base text-emerald-400">PHP {getTotal().toFixed(2)}</span>
+            </div>
+          </section>
+
+          {/* Payment Method */}
+          <section className="space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Payment Details</p>
+            <div className="grid grid-cols-3 gap-2">
+              {(['GCash', 'Bank Transfer', 'Cash'] as const).map((m) => (
+                <button type="button" key={m} onClick={() => setPaymentMethod(m)}
+                  className={`flex items-center justify-center gap-1.5 py-2 rounded-lg border font-semibold transition-colors ${
+                    paymentMethod === m
+                      ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300'
+                      : 'border-slate-800 text-slate-400 hover:border-slate-600'
+                  }`}>
+                  {m === 'Cash' ? <Banknote className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
+                  {m}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-slate-300 font-medium">
+                  {paymentMethod === 'Cash' ? 'OR / Slip Number' : 'Reference Number'} *
+                </label>
+                <input name="paymentReference" required
+                  placeholder={paymentMethod === 'GCash' ? 'e.g. 9023182' : paymentMethod === 'Cash' ? 'e.g. OR-0812' : 'e.g. 12345678'}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none font-mono text-indigo-300" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-slate-300 font-medium">Payment Date *</label>
+                <input name="paymentDate" type="date" required
+                  max={new Date().toISOString().split('T')[0]}
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 outline-none" />
+              </div>
+            </div>
+          </section>
+
+          {/* Proof of Payment */}
+          <section className="space-y-1">
+            <label className="text-slate-300 font-medium">
+              {paymentMethod === 'Cash' ? 'Photo of Receipt' : 'Screenshot of Payment'}{' '}
+              <span className="text-red-400">* Required</span>
+            </label>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) { setSelectedFile(f); setErrorMessage('') }
+            }} className="hidden" />
+            <div onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
+                selectedFile
+                  ? 'border-emerald-500/60 bg-emerald-950/20'
+                  : 'border-slate-800 hover:border-indigo-500 bg-slate-950/60'
+              }`}>
+              {selectedFile ? (
+                <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-left">
+                  <div className="flex items-center gap-2.5 overflow-hidden">
+                    <ImageIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div className="truncate">
+                      <p className="text-xs font-semibold text-slate-200 truncate">{selectedFile.name}</p>
+                      <p className="text-[10px] text-slate-400">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                    className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-red-400">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  I-submit Payment Claim
-                </>
+                <div className="space-y-1.5">
+                  <UploadCloud className="w-7 h-7 text-indigo-400 mx-auto" />
+                  <p className="text-xs font-medium text-slate-300">Click to upload</p>
+                  <p className="text-[10px] text-slate-500">PNG, JPG, WEBP — max 5 MB</p>
+                </div>
               )}
-            </button>
-          </form>
-        )}
+            </div>
+          </section>
+
+          {/* Privacy Consent */}
+          <section className="border border-slate-800 rounded-lg p-3 space-y-2 bg-slate-950/40">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Privacy Consent (RA 10173)</p>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              By submitting this form, you consent to LICOES collecting and processing your student
+              number, name, DWCL email, payment details, and proof of payment solely for membership
+              fee verification and record-keeping purposes.
+            </p>
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input type="checkbox" checked={privacyConsent} onChange={(e) => setPrivacyConsent(e.target.checked)}
+                className="mt-0.5 rounded" />
+              <span className="text-xs text-slate-300">
+                I agree to the data processing notice above and consent to LICOES using my
+                information for the stated purpose.
+              </span>
+            </label>
+          </section>
+
+          <button type="submit" disabled={isPending || !privacyConsent}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold p-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+            {isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</> : <><Send className="w-4 h-4" /> Submit Payment Claim</>}
+          </button>
+        </form>
       </div>
     </main>
   )

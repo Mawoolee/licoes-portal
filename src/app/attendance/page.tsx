@@ -1,145 +1,342 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { lookupStudentAction } from '@/app/actions/alphalist-actions'
-import { AlertTriangle, CheckCircle2, Scan } from 'lucide-react'
+import { useState, useRef, useEffect, useTransition } from 'react'
+import {
+  QrCode,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  LogIn,
+  LogOut,
+  RefreshCw,
+  Users,
+  CalendarDays,
+  Lock,
+} from 'lucide-react'
+import { getActiveEventsAction, recordScanAction } from '@/app/actions/attendance-actions'
 
-export default function AttendanceTerminalPage() {
+type EventOption = {
+  id: string
+  name: string
+  location: string
+  windowStart: Date
+  windowEnd: Date
+  isClosed: boolean
+}
+
+type ScanLog = {
+  id: string
+  studentId: string
+  studentName: string
+  section: string
+  scanMode: 'TIME_IN' | 'TIME_OUT'
+  timeIn?: string
+  timeOut?: string
+  timestamp: string
+  status: 'PRESENT' | 'UNREGISTERED' | 'ERROR'
+}
+
+export default function AttendancePage() {
+  const [events, setEvents] = useState<EventOption[]>([])
+  const [selectedEventId, setSelectedEventId] = useState('')
+  const [loadingEvents, setLoadingEvents] = useState(true)
+
   const [scannedInput, setScannedInput] = useState('')
-  const [logs, setLogs] = useState<any[]>([])
-  const [lastScanResult, setLastScanResult] = useState<{
-    success: boolean
-    message: string
-    name?: string
-  } | null>(null)
+  const [logs, setLogs] = useState<ScanLog[]>([])
+  const [lastResult, setLastResult] = useState<{ success: boolean; message: string; scanMode?: 'TIME_IN' | 'TIME_OUT' } | null>(null)
+  const [isPending, startTransition] = useTransition()
 
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Auto-focus sa barcode input
+  // Load active events on mount
   useEffect(() => {
-    inputRef.current?.focus()
+    getActiveEventsAction().then((evts) => {
+      setEvents(evts as EventOption[])
+      if (evts.length === 1) setSelectedEventId(evts[0].id)
+      setLoadingEvents(false)
+    })
   }, [])
 
-  const handleScanSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!scannedInput.trim()) return
+  // Auto-focus input when an event is selected
+  useEffect(() => {
+    if (selectedEventId) inputRef.current?.focus()
+  }, [selectedEventId])
 
-    const rawId = scannedInput.trim()
-    setScannedInput('')
-
-    // Hanapin ang student sa Alpha List
-    const result = await lookupStudentAction(rawId)
-
-    const now = new Date().toLocaleTimeString('en-US')
-
-    if (result.found && result.student) {
-      const student = result.student
-
-      const newLog = {
-        id: student.id,
-        name: student.fullName,
-        section: student.section,
-        timeIn: now,
-        status: 'PRESENT',
-      }
-
-      setLogs((prev) => [newLog, ...prev])
-      setLastScanResult({
-        success: true,
-        message: `SUCCESS: Time-In recorded for ${student.fullName}!`,
-        name: student.fullName,
-      })
-    } else {
-      // Kapag wala sa Alpha List
-      const newLog = {
-        id: rawId,
-        name: 'UNREGISTERED STUDENT',
-        section: 'N/A',
-        timeIn: now,
-        status: 'NOT IN ALPHA LIST',
-      }
-
-      setLogs((prev) => [newLog, ...prev])
-      setLastScanResult({
-        success: false,
-        message: `WARNING: Student ID ${rawId} is NOT in the Alpha List!`,
-      })
-    }
+  function refreshEvents() {
+    setLoadingEvents(true)
+    getActiveEventsAction().then((evts) => {
+      setEvents(evts as EventOption[])
+      setLoadingEvents(false)
+    })
   }
 
+  function playBeep(success: boolean) {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(success ? 880 : 330, ctx.currentTime)
+      osc.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.12)
+    } catch {}
+  }
+
+  async function handleScan(e: React.FormEvent) {
+    e.preventDefault()
+    const raw = scannedInput.trim()
+    if (!raw || !selectedEventId) return
+    setScannedInput('')
+
+    startTransition(async () => {
+      const result = await recordScanAction(selectedEventId, raw)
+
+      playBeep(result.success)
+      setLastResult({ success: result.success, message: result.message, scanMode: result.scanMode })
+
+      const nowStr = new Date().toLocaleTimeString('en-PH', {
+        hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+      })
+
+      const log: ScanLog = {
+        id: `${raw}-${Date.now()}`,
+        studentId: result.studentId,
+        studentName: result.studentName,
+        section: result.section,
+        scanMode: result.scanMode,
+        timeIn: result.timeIn,
+        timeOut: result.timeOut,
+        timestamp: nowStr,
+        status: result.success
+          ? 'PRESENT'
+          : result.message.includes('not found') || result.message.includes('NOT IN')
+          ? 'UNREGISTERED'
+          : 'ERROR',
+      }
+      setLogs((prev) => [log, ...prev])
+
+      // Re-focus for the next scan
+      setTimeout(() => inputRef.current?.focus(), 50)
+    })
+  }
+
+  const selectedEvent = events.find((e) => e.id === selectedEventId)
+  const presentCount = logs.filter((l) => l.status === 'PRESENT').length
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Scan className="w-6 h-6 text-indigo-400" /> LICOES Attendance Terminal
-          </h1>
-          <p className="text-xs text-slate-400">Barcode Scanner Active • Connected to Alpha List Masterlist</p>
+    <div
+      className="min-h-screen bg-slate-950 text-slate-100 p-6 space-y-5"
+      onClick={() => inputRef.current?.focus()}
+    >
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-indigo-600/20 text-indigo-400 p-2.5 rounded-xl border border-indigo-500/30">
+            <QrCode className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">LICOES Attendance Terminal</h1>
+            <p className="text-xs text-slate-400">
+              {selectedEvent
+                ? `${selectedEvent.name} · ${selectedEvent.location}`
+                : 'Select an event to begin scanning'}
+            </p>
+          </div>
         </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); refreshEvents() }}
+          disabled={loadingEvents}
+          className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1.5 border border-slate-700 px-3 py-1.5 rounded-lg"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loadingEvents ? 'animate-spin' : ''}`} />
+          Refresh Events
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Scanner Input Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* ── Left column: event selector + scanner input ── */}
         <div className="space-y-4">
-          <form onSubmit={handleScanSubmit} className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-3">
-            <label className="text-xs font-medium text-slate-300 block">Scan Barcode / Student ID</label>
+          {/* Event selector */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2">
+            <label className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 uppercase tracking-wide">
+              <CalendarDays className="w-3.5 h-3.5" /> Active Event
+            </label>
+            {loadingEvents ? (
+              <p className="text-xs text-slate-500 animate-pulse">Loading events…</p>
+            ) : events.length === 0 ? (
+              <div className="text-xs text-amber-400 space-y-1">
+                <p>No open events found.</p>
+                <a href="/admin/events" className="underline hover:text-amber-300">
+                  Create an event in Admin →
+                </a>
+              </div>
+            ) : (
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-indigo-500"
+              >
+                <option value="">— Select an event —</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>{ev.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Scanner input */}
+          <form
+            onSubmit={handleScan}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3"
+          >
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              Barcode / Student ID
+            </label>
             <input
               ref={inputRef}
               type="text"
               value={scannedInput}
               onChange={(e) => setScannedInput(e.target.value)}
-              placeholder="I-scan o i-type ang Student ID..."
-              className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 text-slate-100 p-3 rounded-lg text-sm font-mono outline-none"
-              autoFocus
+              placeholder={selectedEventId ? 'Ready to scan…' : 'Select an event first'}
+              disabled={!selectedEventId || isPending}
+              className="w-full bg-slate-950 border-2 border-indigo-500/40 focus:border-indigo-400 text-white font-mono px-4 py-3 rounded-xl text-lg outline-none disabled:opacity-40 transition-all"
             />
+            <p className="text-[10px] text-slate-500 text-center">
+              The scanner auto-submits on Enter. Click anywhere to re-focus.
+            </p>
           </form>
 
-          {/* Feedback Banner */}
-          {lastScanResult && (
-            <div className={`p-4 rounded-xl border flex items-start gap-3 ${
-              lastScanResult.success ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300' : 'bg-red-950/60 border-red-500/50 text-red-300'
-            }`}>
-              {lastScanResult.success ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <AlertTriangle className="w-5 h-5 shrink-0" />}
-              <div className="text-xs">
-                <p className="font-semibold">{lastScanResult.message}</p>
+          {/* Feedback banner */}
+          {lastResult && (
+            <div
+              className={`p-4 rounded-xl border flex items-start gap-3 text-sm ${
+                lastResult.success
+                  ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
+                  : 'bg-red-950/70 border-red-500/40 text-red-300'
+              }`}
+            >
+              {lastResult.success ? (
+                lastResult.scanMode === 'TIME_OUT' ? (
+                  <LogOut className="w-5 h-5 shrink-0 mt-0.5" />
+                ) : (
+                  <LogIn className="w-5 h-5 shrink-0 mt-0.5" />
+                )
+              ) : (
+                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+              )}
+              <div>
+                <p className="font-semibold text-xs">
+                  {lastResult.success
+                    ? lastResult.scanMode === 'TIME_OUT'
+                      ? 'TIME-OUT Recorded'
+                      : 'TIME-IN Recorded'
+                    : 'Scan Failed'}
+                </p>
+                <p className="text-[11px] mt-0.5 opacity-80">{lastResult.message}</p>
               </div>
             </div>
           )}
+
+          {/* Session stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
+              <p className="text-xs text-slate-400 flex items-center gap-1">
+                <Users className="w-3 h-3" /> This Session
+              </p>
+              <p className="text-2xl font-bold text-indigo-400">{presentCount}</p>
+              <p className="text-[10px] text-slate-500">scans recorded</p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-1">
+              <p className="text-xs text-slate-400 flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Status
+              </p>
+              <p className={`text-sm font-bold ${selectedEventId ? 'text-emerald-400' : 'text-slate-500'}`}>
+                {selectedEventId ? '● LIVE' : '○ Idle'}
+              </p>
+              <p className="text-[10px] text-slate-500">
+                {isPending ? 'Processing…' : 'Ready'}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Real-time Session Logs */}
-        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-slate-800 font-semibold text-xs text-slate-300">
-            Real-time Session Logs
+        {/* ── Right column: live session log table ── */}
+        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+            <h2 className="font-semibold text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4 text-slate-400" /> Live Session Log
+            </h2>
+            <button
+              onClick={(e) => { e.stopPropagation(); setLogs([]) }}
+              className="text-xs text-slate-500 hover:text-slate-300"
+            >
+              Clear
+            </button>
           </div>
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/60 border-b border-slate-800 text-slate-400 uppercase text-[10px]">
-              <tr>
-                <th className="p-3">Student ID</th>
-                <th className="p-3">Name</th>
-                <th className="p-3">Section</th>
-                <th className="p-3">Time In</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {logs.map((log, index) => (
-                <tr key={index} className="hover:bg-slate-800/30 font-mono">
-                  <td className="p-3 text-indigo-400 font-semibold">{log.id}</td>
-                  <td className="p-3 font-sans font-medium text-slate-200">{log.name}</td>
-                  <td className="p-3 text-slate-400">{log.section}</td>
-                  <td className="p-3 text-emerald-400">{log.timeIn}</td>
-                  <td className="p-3">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-sans font-bold ${
-                      log.status === 'PRESENT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-red-950 text-red-400 border border-red-800'
-                    }`}>
-                      {log.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+          <div className="overflow-auto flex-1 max-h-[520px]">
+            {logs.length === 0 ? (
+              <div className="h-64 flex flex-col items-center justify-center text-slate-600">
+                <QrCode className="w-8 h-8 mb-2 stroke-[1.5]" />
+                <p className="text-xs">No scans yet in this session.</p>
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-slate-950/60 border-b border-slate-800 text-slate-400 uppercase text-[10px] sticky top-0">
+                  <tr>
+                    <th className="p-3">ID</th>
+                    <th className="p-3">Name</th>
+                    <th className="p-3">Section</th>
+                    <th className="p-3">Mode</th>
+                    <th className="p-3">Time</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {logs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-800/30">
+                      <td className="p-3 text-indigo-400 font-semibold">{log.studentId}</td>
+                      <td className="p-3 font-sans font-medium text-slate-200 truncate max-w-[160px]">
+                        {log.studentName}
+                      </td>
+                      <td className="p-3 text-slate-400 font-sans">{log.section}</td>
+                      <td className="p-3">
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans ${
+                          log.scanMode === 'TIME_IN'
+                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                            : 'bg-amber-950 text-amber-400 border border-amber-800'
+                        }`}>
+                          {log.scanMode === 'TIME_IN'
+                            ? <><LogIn className="w-2.5 h-2.5" /> IN</>
+                            : <><LogOut className="w-2.5 h-2.5" /> OUT</>}
+                        </span>
+                      </td>
+                      <td className="p-3 text-emerald-400">{log.timestamp}</td>
+                      <td className="p-3">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans ${
+                          log.status === 'PRESENT'
+                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            : log.status === 'UNREGISTERED'
+                            ? 'bg-red-950 text-red-400 border border-red-800'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}>
+                          {log.status === 'UNREGISTERED' ? (
+                            <span className="flex items-center gap-1">
+                              <Lock className="w-2.5 h-2.5" /> NOT IN LIST
+                            </span>
+                          ) : (
+                            log.status
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -139,3 +139,67 @@ async function executeApproval(
     return { success: false, error: 'Failed to complete approval action.' }
   }
 }
+
+// ── Reject Payment Claim ──────────────────────────────────────────────────────
+
+export async function rejectPaymentClaim(input: {
+  paymentClaimId: string
+  rejectionReason: string
+}) {
+  const officer = await requireOfficerRole([Role.ADMIN, Role.TREASURER])
+  const { paymentClaimId, rejectionReason } = input
+
+  if (!rejectionReason?.trim()) {
+    return { success: false, error: 'A rejection reason is required.' }
+  }
+
+  try {
+    const claim = await prisma.paymentClaim.findUnique({ where: { id: paymentClaimId } })
+    if (!claim) return { success: false, error: 'Payment claim not found.' }
+    if (claim.status !== 'PENDING') return { success: false, error: `Claim is already ${claim.status.toLowerCase()}.` }
+
+    await prisma.$transaction([
+      prisma.paymentClaim.update({
+        where: { id: paymentClaimId },
+        data: {
+          status: 'REJECTED',
+          rejectionReason: rejectionReason.trim(),
+          verifiedByOfficerId: officer.id,
+          verifiedAt: new Date(),
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          officerId: officer.id,
+          action: 'PAYMENT_CLAIM_REJECTED',
+          targetRecord: 'PaymentClaim',
+          recordId: paymentClaimId,
+          previousVal: JSON.stringify({ status: claim.status }),
+          newVal: JSON.stringify({ status: 'REJECTED', rejectionReason }),
+          timestamp: new Date(),
+        },
+      }),
+    ])
+
+    revalidatePath('/treasurer/claims')
+    return { success: true, paymentClaimId }
+  } catch (error) {
+    console.error('Reject Payment Error:', error)
+    return { success: false, error: 'Failed to reject payment claim.' }
+  }
+}
+
+// ── Fetch Claims (for treasurer dashboard) ────────────────────────────────────
+
+export async function getPaymentClaimsAction(status?: 'PENDING' | 'APPROVED' | 'REJECTED') {
+  return prisma.paymentClaim.findMany({
+    where: status ? { status } : {},
+    include: {
+      claimItems: { include: { feeItem: true } },
+      collectionPeriod: { select: { name: true } },
+      eReceipt: { select: { receiptNumber: true, deliveryStatus: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  })
+}

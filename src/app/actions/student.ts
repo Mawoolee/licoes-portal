@@ -1,7 +1,7 @@
 'server action'
 'use server'
 
-import { prisma } from '@/lib/prisma'
+import { db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 
 interface SubmitClaimInput {
@@ -25,7 +25,7 @@ export async function submitPaymentClaim(input: SubmitClaimInput) {
       return { success: false, error: 'Privacy Consent is required under RA 10173.' }
     }
 
-    const activePeriod = await prisma.collectionPeriod.findFirst({
+    const activePeriod = await db.collectionPeriod.findFirst({
       where: { isActive: true }
     })
 
@@ -33,20 +33,17 @@ export async function submitPaymentClaim(input: SubmitClaimInput) {
       return { success: false, error: 'No active collection period open for submissions.' }
     }
 
-    // Derive Normalized Reference Number (remove spaces, punctuation, lowercase)
     const normalizedReference = input.paymentReference.toLowerCase().replace(/[^a-z0-9]/g, '')
 
-    // Check if canonical student profile exists
-    const studentProfile = await prisma.studentProfile.findUnique({
+    const studentProfile = await db.studentProfile.findUnique({
       where: { studentNumber: input.studentNumber }
     })
 
-    // Fetch item details for calculations
-    const feeItems = await prisma.feeItem.findMany({
+    const feeItems = await db.feeItem.findMany({
       where: { id: { in: input.feeItemIds } }
     })
 
-    const claim = await prisma.paymentClaim.create({
+    const claim = await db.paymentClaim.create({
       data: {
         collectionPeriodId: activePeriod.id,
         studentId: studentProfile ? studentProfile.id : null,

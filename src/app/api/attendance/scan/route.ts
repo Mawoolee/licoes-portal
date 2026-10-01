@@ -134,16 +134,18 @@ export async function POST(request: Request) {
     })
 
     // 6. Record Audit Log
-    await prisma.auditLog.create({
-      data: {
-        officerId: officerId || null,
-        action: `ATTENDANCE_${scanMode}`,
-        targetRecord: 'AttendanceSession',
-        recordId: currentSession.id,
-        newVal: JSON.stringify({ studentId: student.id, scanMode, time: now }),
-        timestamp: now
-      }
-    })
+    if (currentSession) {
+      await prisma.auditLog.create({
+        data: {
+          officerId: officerId || null,
+          action: `ATTENDANCE_${scanMode}`,
+          targetRecord: 'AttendanceSession',
+          recordId: currentSession.id,
+          newVal: JSON.stringify({ studentId: student.id, scanMode, time: now }),
+          timestamp: now
+        }
+      })
+    }
 
     return NextResponse.json({
       success: true,

@@ -18,8 +18,18 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // 3. Protektahan ang /attendance route (Dapat may OFFICER, TREASURER, o ADMIN role)
-    if (path.startsWith('/attendance') && !roles.includes('OFFICER') && !roles.includes('ADMIN') && !roles.includes('TREASURER')) {
+    // 3. Protektahan ang /attendance route (Dapat may ATTENDANCE_OFFICER, TREASURER, o ADMIN role)
+    if (
+      path.startsWith('/attendance') &&
+      !roles.includes('ATTENDANCE_OFFICER') &&
+      !roles.includes('ADMIN') &&
+      !roles.includes('TREASURER')
+    ) {
+      return NextResponse.redirect(new URL('/unauthorized', req.url))
+    }
+
+    // 4. Protektahan ang /admin routes (ADMIN lamang)
+    if (path.startsWith('/admin') && !roles.includes('ADMIN')) {
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
@@ -32,7 +42,6 @@ export default withAuth(
   }
 )
 
-// Piliin kung anong mga URL/Route ang dadaan sa middleware security check
 export const config = {
-  matcher: ['/treasurer/:path*', '/attendance/:path*'],
+  matcher: ['/treasurer/:path*', '/attendance/:path*', '/admin/:path*'],
 }
