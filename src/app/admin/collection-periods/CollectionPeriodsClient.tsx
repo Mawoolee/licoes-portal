@@ -16,7 +16,7 @@ import {
 type FeeItem = {
   id: string
   name: string
-  amount: { toString(): string }
+  amount: string
   requiresShirtSize: boolean
   isRequired: boolean
 }
@@ -122,7 +122,7 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
         const newItem: FeeItem = {
           id: result.id ?? Date.now().toString(),
           name: form.name,
-          amount: { toString: () => parseFloat(form.amount).toFixed(2) },
+          amount: parseFloat(form.amount).toFixed(2),
           requiresShirtSize: form.requiresShirtSize,
           isRequired: form.isRequired,
         }
@@ -146,13 +146,13 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
         ))
         showToast('success', 'Fee item deleted.')
       } else {
-        showToast('error', result.message)
+        showToast('error', result.message || 'Failed to delete fee item')
       }
     })
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -284,7 +284,7 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
                               <div className="min-w-0">
                                 <p className="text-sm font-medium truncate">{item.name}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs text-emerald-700 font-semibold">PHP {parseFloat(item.amount.toString()).toFixed(2)}</span>
+                                  <span className="text-xs text-emerald-700 font-semibold">PHP {parseFloat(item.amount).toFixed(2)}</span>
                                   <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${item.isRequired ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-500'}`}>
                                     {item.isRequired ? 'Required' : 'Optional'}
                                   </span>

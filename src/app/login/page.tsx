@@ -35,7 +35,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-950">
+    <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-white dark:bg-slate-950">
       <div className="max-w-md w-full space-y-6 bg-white dark:bg-slate-900 p-8 rounded-xl border shadow-sm">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">LICOES Officer Login</h1>

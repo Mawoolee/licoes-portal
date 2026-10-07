@@ -5,48 +5,34 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LogOut,
-  ShieldCheck,
-  FileSpreadsheet,
-  LayoutDashboard,
-  CalendarDays,
-  Banknote,
-  Settings,
+  Wallet,
+  Receipt,
+  BookOpen,
+  HandCoins,
 } from 'lucide-react'
 
 const navItems = [
   {
-    href: '/admin',
-    label: 'Dashboard',
-    icon: LayoutDashboard,
-    exact: true,
-  },
-  {
-    href: '/admin/collection-periods',
-    label: 'Collection Periods',
-    icon: Banknote,
+    href: '/finance/cash-advances',
+    label: 'Cash Advances',
+    icon: HandCoins,
     exact: false,
   },
   {
-    href: '/admin/roster',
-    label: 'Student Roster',
-    icon: FileSpreadsheet,
+    href: '/finance/expenses',
+    label: 'Expenses',
+    icon: Receipt,
     exact: false,
   },
   {
-    href: '/admin/events',
-    label: 'Events',
-    icon: CalendarDays,
-    exact: false,
-  },
-  {
-    href: '/admin/config',
-    label: 'Configuration',
-    icon: Settings,
+    href: '/finance/liquidation',
+    label: 'Liquidation',
+    icon: BookOpen,
     exact: false,
   },
 ]
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function FinanceLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
   const pathname = usePathname()
 
@@ -59,15 +45,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Top Header */}
       <header className="border-b border-slate-800 bg-slate-900 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <ShieldCheck className="w-6 h-6 text-violet-600" />
+          <Wallet className="w-6 h-6 text-emerald-600" />
           <span className="font-bold text-lg tracking-tight text-white">LICOES Portal</span>
-          <span className="text-xs bg-violet-900 text-violet-300 font-semibold px-2 py-0.5 rounded">
-            Admin
+          <span className="text-xs bg-emerald-900 text-emerald-300 font-semibold px-2 py-0.5 rounded">
+            Finance
           </span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-xs text-slate-400">
-            {session?.user?.email ?? 'admin@dwcl.edu.ph'}
+            {session?.user?.email ?? 'finance@dwcl.edu.ph'}
           </span>
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
@@ -82,7 +68,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex-1 flex">
         <aside className="w-60 border-r border-slate-800 bg-slate-900 p-4 space-y-1 shrink-0">
           <p className="text-[10px] font-semibold uppercase text-slate-400 px-2.5 pb-1 tracking-widest">
-            Management
+            Finance
           </p>
           {navItems.map(({ href, label, icon: Icon, exact }) => (
             <Link
@@ -90,7 +76,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href={href}
               className={`flex items-center gap-2.5 p-2.5 rounded-lg text-sm font-medium transition-colors ${
                 isActive(href, exact)
-                  ? 'bg-violet-950 text-violet-300'
+                  ? 'bg-emerald-950 text-emerald-300'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >

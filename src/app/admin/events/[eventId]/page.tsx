@@ -35,7 +35,7 @@ export default async function EventReportPage({
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       {/* Back link */}
       <Link
         href="/admin/events"

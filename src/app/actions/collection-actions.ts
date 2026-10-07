@@ -6,13 +6,22 @@ import { revalidatePath } from 'next/cache'
 // ── Collection Periods ────────────────────────────────────────────────────────
 
 export async function getCollectionPeriodsAction() {
-  return db.collectionPeriod.findMany({
+  const periods = await db.collectionPeriod.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
       feeItems: { orderBy: { createdAt: 'asc' } },
       _count: { select: { paymentClaims: true } },
     },
   })
+
+  // Serialize Decimal to string for client components
+  return periods.map(period => ({
+    ...period,
+    feeItems: period.feeItems.map(item => ({
+      ...item,
+      amount: item.amount.toString(),
+    })),
+  }))
 }
 
 export async function createCollectionPeriodAction(formData: FormData) {

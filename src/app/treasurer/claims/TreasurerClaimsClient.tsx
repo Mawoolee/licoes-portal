@@ -9,7 +9,7 @@ import {
 import { approvePaymentClaim, rejectPaymentClaim } from '@/app/actions/treasurer'
 
 type FeeItem = { id: string; name: string }
-type ClaimItem = { id: string; amount: { toString(): string }; feeItem: FeeItem }
+type ClaimItem = { id: string; amount: string; feeItem: FeeItem }
 type EReceipt = { receiptNumber: string; deliveryStatus: string } | null
 type CollectionPeriod = { name: string }
 
@@ -59,7 +59,7 @@ export default function TreasurerClaimsClient({ initialClaims }: { initialClaims
   }
 
   function totalAmount(claim: Claim) {
-    return claim.claimItems.reduce((s, i) => s + parseFloat(i.amount.toString()), 0)
+    return claim.claimItems.reduce((s, i) => s + parseFloat(i.amount), 0)
   }
 
   async function handleApprove() {

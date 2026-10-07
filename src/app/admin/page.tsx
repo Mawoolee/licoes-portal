@@ -56,10 +56,10 @@ export default async function AdminDashboardPage() {
   ]
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-2xl font-bold tracking-tight text-white">Admin Dashboard</h1>
+        <p className="text-sm text-slate-400 mt-1">
           Manage student records, events, and system settings.
         </p>
       </div>
@@ -70,14 +70,14 @@ export default async function AdminDashboardPage() {
           <Link
             key={href}
             href={href}
-            className="bg-white dark:bg-slate-900 border rounded-xl p-5 space-y-3 hover:shadow-sm transition-shadow"
+            className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 space-y-3 hover:shadow-sm transition-shadow"
           >
             <div className={`inline-flex p-2.5 rounded-lg ${bg}`}>
               <Icon className={`w-5 h-5 ${color}`} />
             </div>
             <div>
-              <p className="text-2xl font-bold">{value}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+              <p className="text-2xl font-bold text-white">{value}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{label}</p>
             </div>
           </Link>
         ))}
@@ -85,7 +85,7 @@ export default async function AdminDashboardPage() {
 
       {/* Quick Links */}
       <div>
-        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-widest mb-3">
+        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-3">
           Quick Actions
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -93,11 +93,11 @@ export default async function AdminDashboardPage() {
             <Link
               key={href}
               href={href}
-              className="bg-white dark:bg-slate-900 border rounded-xl p-5 hover:border-violet-400 hover:shadow-sm transition-all group space-y-2"
+              className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 hover:border-violet-400 hover:shadow-sm transition-all group space-y-2"
             >
               <Icon className="w-5 h-5 text-slate-400 group-hover:text-violet-600 transition-colors" />
-              <p className="font-semibold text-sm">{label}</p>
-              <p className="text-xs text-slate-500">{description}</p>
+              <p className="font-semibold text-sm text-white">{label}</p>
+              <p className="text-xs text-slate-400">{description}</p>
             </Link>
           ))}
         </div>

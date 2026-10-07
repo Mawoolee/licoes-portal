@@ -61,9 +61,11 @@ model Officer {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   
-  approvedClaims PaymentClaim[] @relation("ApprovedByTreasurer")
-  eReceipts     EReceipt[]
-  auditLogs     AuditLog[]
+  approvedClaims     PaymentClaim[]      @relation("ApprovedByTreasurer")
+  eReceipts          EReceipt[]
+  auditLogs          AuditLog[]
+  cashAdvances       CashAdvance[]
+  liquidationRecords LiquidationRecord[]
 }
 
 // Canonical Student Profile
@@ -231,4 +233,100 @@ model AuditLog {
   newVal       String?  @db.Text
   reason       String?
   timestamp    DateTime @default(now())
+}
+
+// ─── New enums for remaining modules ───────────────────────────────────────
+
+enum ConfigItemType {
+  PROGRAM
+  YEAR_LEVEL
+  SHIRT_SIZE
+  PAYMENT_METHOD
+}
+
+enum CashAdvanceStatus {
+  OPEN
+  LIQUIDATED
+}
+
+// ─── Admin Configuration Panel ─────────────────────────────────────────────
+
+model SystemConfig {
+  id        String         @id @default(cuid())
+  type      ConfigItemType
+  value     String
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+
+  @@unique([type, value])
+}
+
+// ─── Finance Expense Recorder ──────────────────────────────────────────────
+
+model CashAdvance {
+  id                 String            @id @default(cuid())
+  recipientName      String            @db.VarChar(100)
+  purpose            String            @db.VarChar(255)
+  amount             Decimal           @db.Decimal(15, 2)
+  dateIssued         DateTime
+  status             CashAdvanceStatus @default(OPEN)
+  createdByOfficerId String
+  createdBy          Officer           @relation(fields: [createdByOfficerId], references: [id])
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  expenses          Expense[]
+  liquidationRecord LiquidationRecord?
+}
+
+model Expense {
+  id                          String      @id @default(cuid())
+  cashAdvanceId               String
+  cashAdvance                 CashAdvance @relation(fields: [cashAdvanceId], references: [id])
+  description                 String      @db.VarChar(255)
+  vendorName                  String      @db.VarChar(100)
+  amount                      Decimal     @db.Decimal(15, 2)
+  datePurchased               DateTime
+  acknowledgmentReceiptNumber String?     @unique
+  // Snapshot fields — populated when AR is first generated
+  arVendorName                String?
+  arDescription               String?
+  arAmount                    Decimal?    @db.Decimal(15, 2)
+  arIssuedAt                  DateTime?
+  createdAt                   DateTime    @default(now())
+
+  evidence            ExpenseEvidence[]
+  liquidationExpenses LiquidationExpense[]
+}
+
+model ExpenseEvidence {
+  id         String   @id @default(cuid())
+  expenseId  String
+  expense    Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  fileUrl    String
+  fileName   String
+  uploadedAt DateTime @default(now())
+}
+
+// ─── Liquidation Records ───────────────────────────────────────────────────
+
+model LiquidationRecord {
+  id                   String      @id @default(cuid())
+  cashAdvanceId        String      @unique
+  cashAdvance          CashAdvance @relation(fields: [cashAdvanceId], references: [id])
+  totalLiquidated      Decimal     @db.Decimal(15, 2)
+  unliquidatedBalance  Decimal     @db.Decimal(15, 2)
+  submittedByOfficerId String
+  submittedBy          Officer     @relation(fields: [submittedByOfficerId], references: [id])
+  submittedAt          DateTime    @default(now())
+
+  liquidationExpenses LiquidationExpense[]
+}
+
+model LiquidationExpense {
+  id                  String            @id @default(cuid())
+  liquidationRecordId String
+  liquidationRecord   LiquidationRecord @relation(fields: [liquidationRecordId], references: [id])
+  expenseId           String            @unique
+  expense             Expense           @relation(fields: [expenseId], references: [id])
 }

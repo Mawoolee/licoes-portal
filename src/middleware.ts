@@ -33,6 +33,42 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
+    // 5. Protektahan ang /finance routes (FINANCE_OFFICER o ADMIN)
+    if (
+      path.startsWith('/finance') &&
+      !roles.includes('FINANCE_OFFICER') &&
+      !roles.includes('ADMIN')
+    ) {
+      return NextResponse.redirect(new URL('/unauthorized', req.url))
+    }
+
+    // 6. Protektahan ang /reports/attendance (ADMIN o FINANCE_OFFICER)
+    if (
+      path === '/reports/attendance' &&
+      !roles.includes('ADMIN') &&
+      !roles.includes('FINANCE_OFFICER')
+    ) {
+      return NextResponse.redirect(new URL('/unauthorized', req.url))
+    }
+
+    // 7. Protektahan ang /reports/payments (ADMIN o TREASURER)
+    if (
+      path === '/reports/payments' &&
+      !roles.includes('ADMIN') &&
+      !roles.includes('TREASURER')
+    ) {
+      return NextResponse.redirect(new URL('/unauthorized', req.url))
+    }
+
+    // 8. Protektahan ang /auditor routes (AUDITOR o ADMIN)
+    if (
+      path.startsWith('/auditor') &&
+      !roles.includes('AUDITOR') &&
+      !roles.includes('ADMIN')
+    ) {
+      return NextResponse.redirect(new URL('/unauthorized', req.url))
+    }
+
     return NextResponse.next()
   },
   {
@@ -43,5 +79,12 @@ export default withAuth(
 )
 
 export const config = {
-  matcher: ['/treasurer/:path*', '/attendance/:path*', '/admin/:path*'],
+  matcher: [
+    '/treasurer/:path*',
+    '/attendance/:path*',
+    '/admin/:path*',
+    '/finance/:path*',
+    '/reports/:path*',
+    '/auditor/:path*',
+  ],
 }

@@ -8,13 +8,13 @@ export default function TreasurerLayout({ children }: { children: React.ReactNod
   const { data: session } = useSession()
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+    <div className="min-h-screen bg-slate-950 flex flex-col">
       {/* Top Header */}
-      <header className="border-b bg-white dark:bg-slate-900 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-slate-800 bg-slate-900 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <ShieldCheck className="w-6 h-6 text-indigo-600" />
           <span className="font-bold text-lg tracking-tight">LICOES Portal</span>
-          <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded">
+          <span className="text-xs bg-indigo-900 text-indigo-300 font-semibold px-2 py-0.5 rounded">
             Treasurer
           </span>
         </div>
@@ -24,7 +24,7 @@ export default function TreasurerLayout({ children }: { children: React.ReactNod
           </span>
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
-            className="text-xs flex items-center gap-1 text-slate-600 hover:text-red-600 transition-colors border px-3 py-1.5 rounded-md border-slate-200"
+            className="text-xs flex items-center gap-1 text-slate-400 hover:text-red-400 transition-colors border border-slate-700 px-3 py-1.5 rounded-md"
           >
             <LogOut className="w-3.5 h-3.5" /> Logout
           </button>
@@ -33,16 +33,16 @@ export default function TreasurerLayout({ children }: { children: React.ReactNod
 
       {/* Main Workspace */}
       <div className="flex-1 flex">
-        <aside className="w-64 border-r bg-white dark:bg-slate-900 p-4 space-y-2">
+        <aside className="w-64 border-r border-slate-800 bg-slate-900 p-4 space-y-2">
           <Link
             href="/treasurer/claims"
-            className="flex items-center gap-2 p-2.5 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+            className="flex items-center gap-2 p-2.5 rounded-lg text-sm font-medium bg-indigo-950 text-indigo-300"
           >
             <CreditCard className="w-4 h-4" /> Payment Claims
           </Link>
           <Link
             href="/attendance"
-            className="flex items-center gap-2 p-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="flex items-center gap-2 p-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 transition-colors"
           >
             <QrCode className="w-4 h-4" /> Attendance Scanner
           </Link>

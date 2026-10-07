@@ -1,0 +1,249 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Extend Prisma schema with new models and run migration": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037057
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357055770
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357749757
+      }
+    ],
+    "2. Update middleware to protect new routes": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037146
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357768788
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791358138268
+      }
+    ],
+    "3. Admin Configuration Panel — server actions": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037212
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791358154818
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791360103830
+      }
+    ],
+    "4. Admin Configuration Panel — page and UI components": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037276
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791360128781
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791360902324
+      }
+    ],
+    "5. Finance module layout and navigation": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037330
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791360918124
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791360965257
+      }
+    ],
+    "6. Finance — Cash Advance server actions": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037400
+      },
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791361296366
+      }
+    ],
+    "7. Finance — Cash Advance pages": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037468
+      }
+    ],
+    "8. Finance — Expense server actions": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037515
+      }
+    ],
+    "9. Finance — Uploadthing evidence upload endpoint": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037578
+      }
+    ],
+    "10. Finance — Expense list page with evidence display": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037630
+      }
+    ],
+    "11. Finance — Acknowledgment Receipt server action": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037688
+      }
+    ],
+    "12. Finance — Acknowledgment Receipt print page": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037745
+      }
+    ],
+    "13. Liquidation Records — server actions": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037808
+      }
+    ],
+    "14. Liquidation Records — page": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037865
+      }
+    ],
+    "15. Scan Profile Summary — server action": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037918
+      }
+    ],
+    "16. Scan Profile Summary — modal component": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357037965
+      }
+    ],
+    "17. Scan Profile Summary — integrate into attendance page": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038024
+      }
+    ],
+    "18. Reporting — shared layout": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038078
+      }
+    ],
+    "19. Reporting — Attendance Report server actions": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038142
+      }
+    ],
+    "20. Reporting — Attendance Report page and CSV/PDF export": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038241
+      }
+    ],
+    "21. Reporting — Payment Report server actions": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038306
+      }
+    ],
+    "22. Reporting — Payment Report page and CSV/PDF export": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038362
+      }
+    ],
+    "23. Audit Log UI — server action": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038414
+      }
+    ],
+    "24. Audit Log UI — layout and page": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038474
+      }
+    ],
+    "25. Data Migration — server actions": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038530
+      }
+    ],
+    "26. Data Migration — page": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038590
+      }
+    ],
+    "27. Connect submit-claim form dropdowns to SystemConfig": [
+      {
+        "executionId": "0a213ecb-42ea-48ee-a0aa-ac1df350e07c",
+        "chatSessionId": "sess_5e8988a5-c188-4368-a1e8-f1147515d0e5",
+        "timestamp": 1791357038644
+      }
+    ]
+  }
+}
