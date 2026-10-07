@@ -4,11 +4,11 @@ type ButtonVariant = 'default' | 'outline' | 'destructive' | 'ghost' | 'secondar
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon'
 
 const variantClasses: Record<ButtonVariant, string> = {
-  default: 'bg-slate-900 text-white hover:bg-slate-800',
-  outline: 'border border-slate-300 bg-transparent hover:bg-slate-100 text-slate-900',
-  destructive: 'bg-red-600 text-white hover:bg-red-700',
-  ghost: 'bg-transparent hover:bg-slate-100 text-slate-900',
-  secondary: 'bg-slate-200 text-slate-900 hover:bg-slate-300',
+  default: 'bg-[var(--brand-400)] text-white hover:bg-[var(--brand-500)]',
+  outline: 'border border-[var(--brand-100)] bg-white hover:bg-[var(--brand-50)] text-[var(--text-primary)]',
+  destructive: 'bg-[var(--brand-600)] text-white hover:bg-[var(--brand-500)]',
+  ghost: 'bg-transparent hover:bg-[var(--brand-50)] text-[var(--text-primary)]',
+  secondary: 'bg-[var(--brand-50)] text-[var(--text-primary)] hover:bg-[var(--brand-100)]',
 }
 
 const sizeClasses: Record<ButtonSize, string> = {

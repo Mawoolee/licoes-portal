@@ -3,7 +3,7 @@ import * as React from 'react'
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
 
 const variantClasses: Record<BadgeVariant, string> = {
-  default: 'bg-slate-900 text-white',
+  default: 'bg-[var(--brand-500)] text-white',
   secondary: 'bg-slate-200 text-slate-800',
   destructive: 'bg-red-600 text-white',
   outline: 'border border-slate-300 bg-transparent text-slate-700',
