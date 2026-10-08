@@ -35,7 +35,7 @@ export default async function CourseYearsPage({
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <Link href="/admin/roster" className="hover:text-slate-300 flex items-center gap-1.5">
-          <ArrowLeft className="w-3.5 h-3.5" /> Student Roster
+          <ArrowLeft className="w-3.5 h-3.5" /> List of Students
         </Link>
         <span>/</span>
         <span className="font-semibold text-slate-200">{course}</span>

@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { Role } from '@prisma/client'
+import { AccountStatus, Role } from '@prisma/client'
 
 export async function getCurrentOfficer() {
   const session = await getServerSession(authOptions)
@@ -14,7 +14,12 @@ export async function requireOfficerRole(allowedRoles: Role[]) {
     throw new Error('Unauthorized: Authentication required.')
   }
 
-  const hasRole = allowedRoles.some((role) => officer.roles.includes(role))
+  // Pending accounts never have role-based access
+  if ((officer as any).status !== 'ACTIVE') {
+    throw new Error('Forbidden: Account is not yet approved.')
+  }
+
+  const hasRole = allowedRoles.some((role) => (officer as any).roles.includes(role))
 
   if (!hasRole) {
     throw new Error('Forbidden: Insufficient permissions.')

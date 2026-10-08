@@ -1,106 +1,108 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
-import { FileSpreadsheet, Users, CalendarDays, QrCode } from 'lucide-react'
+import { Users, CalendarDays, BadgeCheck } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 
 export default async function AdminDashboardPage() {
-  // Fetch quick stats in parallel
-  const [studentCount, eventCount] = await Promise.all([
+  // Get the active collection period for this semester
+  const activePeriod = await db.collectionPeriod.findFirst({
+    where: { isActive: true },
+    include: {
+      feeItems: {
+        where: { name: { contains: 'Membership', mode: 'insensitive' } },
+        take: 1,
+      },
+    },
+  })
+
+  const membershipFeeItemId = activePeriod?.feeItems[0]?.id ?? null
+
+  const [studentCount, eventCount, paidCount] = await Promise.all([
+    // Total students this semester
     db.student.count(),
+
+    // Total events this semester
     db.event.count(),
+
+    // Total students who paid membership fee in the active period
+    membershipFeeItemId
+      ? db.paymentClaim.count({
+          where: {
+            collectionPeriodId: activePeriod!.id,
+            status: 'APPROVED',
+            claimItems: {
+              some: { feeItemId: membershipFeeItemId },
+            },
+          },
+        })
+      : Promise.resolve(0),
   ])
 
   const stats = [
     {
-      label: 'Students in Alpha List',
+      label: 'Total Students',
+      sublabel: activePeriod ? `${activePeriod.name}` : 'This semester',
       value: studentCount.toLocaleString(),
       icon: Users,
-      href: '/admin/students',
-      color: 'text-violet-600',
-      bg: 'bg-violet-50 dark:bg-violet-950/40',
+      href: '/admin/roster',
+      iconBg: 'bg-[var(--brand-50)]',
+      iconColor: 'text-[var(--brand-500)]',
     },
     {
-      label: 'Events Created',
+      label: 'Total Events',
+      sublabel: 'This semester',
       value: eventCount.toLocaleString(),
       icon: CalendarDays,
-      href: '/admin/events',
-      color: 'text-indigo-600',
-      bg: 'bg-indigo-50 dark:bg-indigo-950/40',
-    },
-  ]
-
-  const quickLinks = [
-    {
-      href: '/admin/alphalist',
-      label: 'Import Student Data',
-      description: 'Import student records from the SOECS Excel file',
-      icon: FileSpreadsheet,
+      href: '/admin/attendance/list',
+      iconBg: 'bg-blue-50',
+      iconColor: 'text-blue-500',
     },
     {
-      href: '/admin/roster',
-      label: 'Student Roster',
-      description: 'Browse students by program and year level',
-      icon: Users,
-    },
-    {
-      href: '/admin/events',
-      label: 'Manage Events',
-      description: 'Create and close attendance events',
-      icon: CalendarDays,
-    },
-    {
-      href: '/attendance',
-      label: 'Attendance Terminal',
-      description: 'Open the barcode scanner for a live event',
-      icon: QrCode,
+      label: 'Paid Membership Fee',
+      sublabel: activePeriod ? `${activePeriod.name}` : 'No active period',
+      value: paidCount.toLocaleString(),
+      icon: BadgeCheck,
+      href: '/admin/payments',
+      iconBg: 'bg-green-50',
+      iconColor: 'text-green-500',
     },
   ]
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">Admin Dashboard</h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Manage student records, events, and system settings.
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+          Dashboard
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          Overview of students, events, and membership collections.
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4">
-        {stats.map(({ label, value, icon: Icon, href, color, bg }) => (
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {stats.map(({ label, sublabel, value, icon: Icon, href, iconBg, iconColor }) => (
           <Link
             key={href}
             href={href}
-            className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 space-y-3 hover:shadow-sm transition-shadow"
+            className="group rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] p-6 flex flex-col gap-4 hover:shadow-md hover:border-[var(--brand-200)] transition-all"
           >
-            <div className={`inline-flex p-2.5 rounded-lg ${bg}`}>
-              <Icon className={`w-5 h-5 ${color}`} />
+            <div className={`inline-flex p-2.5 rounded-lg w-fit ${iconBg}`}>
+              <Icon className={`w-5 h-5 ${iconColor}`} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
-              <p className="text-xs text-slate-400 mt-0.5">{label}</p>
+              <p className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">
+                {value}
+              </p>
+              <p className="text-sm font-semibold text-[var(--text-primary)] mt-0.5">{label}</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">{sublabel}</p>
             </div>
+            <p className="text-xs text-[var(--brand-500)] font-medium group-hover:underline mt-auto">
+              View details →
+            </p>
           </Link>
         ))}
-      </div>
-
-      {/* Quick Links */}
-      <div>
-        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-3">
-          Quick Actions
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {quickLinks.map(({ href, label, description, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 hover:border-violet-400 hover:shadow-sm transition-all group space-y-2"
-            >
-              <Icon className="w-5 h-5 text-slate-400 group-hover:text-violet-600 transition-colors" />
-              <p className="font-semibold text-sm text-[var(--text-primary)]">{label}</p>
-              <p className="text-xs text-slate-400">{description}</p>
-            </Link>
-          ))}
-        </div>
       </div>
     </div>
   )

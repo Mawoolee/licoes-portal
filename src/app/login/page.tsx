@@ -1,84 +1,77 @@
 'use client'
 
-import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { AlertTriangle } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
+import { ShieldCheck } from 'lucide-react'
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
+const ERROR_MESSAGES: Record<string, string> = {
+  not_dwcl: 'Dapat DWCL school account ang gamitin (@dwc-legazpi.edu).',
+  rejected: 'Ang iyong account ay na-reject ng admin. Makipag-ugnayan sa LICOES admin.',
+  OAuthSignin: 'May problema sa Google Sign-In. Pakisubukan ulit.',
+  OAuthCallback: 'May problema sa Google Sign-In. Pakisubukan ulit.',
+  default: 'May naganap na error. Pakisubukan ulit.',
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    const res = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-      callbackUrl: '/'
-    })
-
-    if (res?.error) {
-      setError('Maling email o password. Pakisubukan ulit.')
-      setLoading(false)
-    } else if (res?.url) {
-      router.push(res.url)
-    }
-  }
+function LoginContent() {
+  const params = useSearchParams()
+  const errorKey = params.get('error') ?? ''
+  const errorMsg = ERROR_MESSAGES[errorKey] ?? (errorKey ? ERROR_MESSAGES.default : null)
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-[var(--bg-cream)]">
-      <div className="w-full max-w-md space-y-6 rounded-2xl border border-[var(--brand-100)] bg-[var(--surface)] p-8 shadow-[0_18px_45px_rgba(203,24,29,0.08)]">
-        <div className="space-y-2 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">LICOES Officer Login</h1>
-          <p className="text-xs text-[var(--text-muted)]">
-            Gamitin ang iyong DWCL email at password para makapasok sa officer dashboard.
-          </p>
+      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-[var(--brand-100)] bg-[var(--surface)] p-8 shadow-[0_18px_45px_rgba(203,24,29,0.08)]">
+
+        {/* Header */}
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="w-12 h-12 rounded-full bg-[var(--brand-50)] flex items-center justify-center">
+            <ShieldCheck className="w-6 h-6 text-[var(--brand-500)]" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
+              LICOES Portal
+            </h1>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              Sign in gamit ang iyong DWCL school account
+            </p>
+          </div>
         </div>
 
-        {error && (
-          <div className="flex items-center gap-2 rounded-md border border-[var(--brand-100)] bg-[var(--brand-50)] p-3 text-sm text-[var(--brand-600)]">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span>{error}</span>
+        {/* Error */}
+        {errorMsg && (
+          <div className="rounded-md border border-[var(--brand-100)] bg-[var(--brand-50)] p-3 text-sm text-[var(--brand-600)] text-center">
+            {errorMsg}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-[var(--text-muted)]">DWCL Email</label>
-            <Input
-              type="email"
-              placeholder="officer@dwcl.edu.ph"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
+        {/* Google Button */}
+        <button
+          onClick={() => signIn('google', { callbackUrl: '/' })}
+          className="w-full flex items-center justify-center gap-3 rounded-lg border border-[var(--brand-100)] bg-white px-4 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--brand-50)] transition-colors shadow-sm"
+        >
+          {/* Google SVG icon */}
+          <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+            <path d="M3.964 10.707A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+          Sign in with Google
+        </button>
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-[var(--text-muted)]">Password</label>
-            <Input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Verifying credentials...' : 'Sign In'}
-          </Button>
-        </form>
+        <p className="text-center text-[11px] text-[var(--text-muted)] leading-relaxed">
+          Para sa LICOES officers lamang.<br />
+          Gamitin ang iyong <span className="font-semibold">@dwc-legazpi.edu</span> account.
+        </p>
       </div>
     </main>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   )
 }

@@ -15,6 +15,12 @@ enum Role {
   AUDITOR
 }
 
+enum AccountStatus {
+  PENDING   // Newly signed up, waiting for admin approval
+  ACTIVE    // Approved — full access
+  REJECTED  // Rejected by admin
+}
+
 enum PaymentStatus {
   UNPAID
   PENDING
@@ -53,13 +59,14 @@ model Student {
 
 // Officer Accounts for Role-Based Access Control
 model Officer {
-  id            String         @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String
-  email         String         @unique
+  email         String        @unique
   passwordHash  String
   roles         Role[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  status        AccountStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   
   approvedClaims     PaymentClaim[]      @relation("ApprovedByTreasurer")
   eReceipts          EReceipt[]
@@ -184,15 +191,19 @@ model EReceipt {
 
 // Events & Attendance
 model Event {
-  id                String             @id @default(cuid())
-  name              String
-  location          String
-  windowStart       DateTime
-  windowEnd         DateTime
-  isClosed          Boolean            @default(false)
-  closedAt          DateTime?
-  createdAt         DateTime           @default(now())
-  
+  id              String             @id @default(cuid())
+  name            String
+  location        String
+  // Time-In window
+  timeInStart     DateTime?
+  timeInEnd       DateTime?
+  // Time-Out window
+  timeOutStart    DateTime?
+  timeOutEnd      DateTime?
+  isClosed        Boolean            @default(false)
+  closedAt        DateTime?
+  createdAt       DateTime           @default(now())
+
   attendanceRecords AttendanceRecord[]
 }
 
@@ -216,6 +227,8 @@ model AttendanceSession {
   attendanceRecord   AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
   timeIn             DateTime
   timeOut            DateTime?
+  isLateTimeIn       Boolean          @default(false)
+  isLateTimeOut      Boolean          @default(false)
   scannedBarcode     String
   operationId        String           @unique
   createdAt          DateTime         @default(now())

@@ -58,9 +58,8 @@ export default async function EventReportPage({
           </span>
           <span className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            {new Date(event.windowStart).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
-            {' – '}
-            {new Date(event.windowEnd).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true })}
+            {new Date(event.timeInStart ?? event.createdAt).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+            {event.timeOutEnd ? ` – ${new Date(event.timeOutEnd).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true })}` : ''}
           </span>
           <span className="flex items-center gap-1">
             <Users className="w-3 h-3" /> {total} students present

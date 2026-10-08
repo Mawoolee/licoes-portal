@@ -3,31 +3,73 @@
 import { db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+export type ScanMode = 'TIME_IN' | 'TIME_OUT'
+export type WindowStatus = 'TIME_IN' | 'TIME_OUT' | 'OUTSIDE' | 'UNCONFIGURED'
+
+/**
+ * Determines the current scan mode based on the event's 4 time windows.
+ * Returns the active window and whether the scan is "late" (after cut-off
+ * but we still allow it as a special case handled by the caller).
+ */
+export function getWindowStatus(event: {
+  timeInStart: Date | null
+  timeInEnd: Date | null
+  timeOutStart: Date | null
+  timeOutEnd: Date | null
+}, now: Date = new Date()): { status: WindowStatus; isLate: boolean } {
+  if (!event.timeInStart || !event.timeInEnd || !event.timeOutStart || !event.timeOutEnd) {
+    return { status: 'UNCONFIGURED', isLate: false }
+  }
+
+  const timeInStart  = new Date(event.timeInStart)
+  const timeInEnd    = new Date(event.timeInEnd)
+  const timeOutStart = new Date(event.timeOutStart)
+  const timeOutEnd   = new Date(event.timeOutEnd)
+
+  if (now >= timeInStart && now <= timeInEnd) {
+    return { status: 'TIME_IN', isLate: false }
+  }
+  if (now >= timeOutStart && now <= timeOutEnd) {
+    return { status: 'TIME_OUT', isLate: false }
+  }
+  // Between time-in cut-off and time-out window start → LATE TIME_IN allowed
+  if (now > timeInEnd && now < timeOutStart) {
+    return { status: 'TIME_IN', isLate: true }
+  }
+  return { status: 'OUTSIDE', isLate: false }
+}
+
 // ─── Event Management ────────────────────────────────────────────────────────
 
 export async function createEventAction(formData: FormData) {
-  const name = (formData.get('name') as string | null)?.trim()
-  const location = (formData.get('location') as string | null)?.trim()
-  const windowStart = formData.get('windowStart') as string | null
-  const windowEnd = formData.get('windowEnd') as string | null
+  const name        = (formData.get('name') as string | null)?.trim()
+  const location    = (formData.get('location') as string | null)?.trim()
+  const timeInStart  = formData.get('timeInStart') as string | null
+  const timeInEnd    = formData.get('timeInEnd') as string | null
+  const timeOutStart = formData.get('timeOutStart') as string | null
+  const timeOutEnd   = formData.get('timeOutEnd') as string | null
 
-  if (!name || !location || !windowStart || !windowEnd) {
+  if (!name || !location || !timeInStart || !timeInEnd || !timeOutStart || !timeOutEnd) {
     return { success: false, message: 'All fields are required.' }
   }
 
-  const start = new Date(windowStart)
-  const end = new Date(windowEnd)
+  const tIS = new Date(timeInStart)
+  const tIE = new Date(timeInEnd)
+  const tOS = new Date(timeOutStart)
+  const tOE = new Date(timeOutEnd)
 
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+  if ([tIS, tIE, tOS, tOE].some((d) => isNaN(d.getTime()))) {
     return { success: false, message: 'Invalid date/time values.' }
   }
-  if (end <= start) {
-    return { success: false, message: 'End time must be after start time.' }
-  }
+  if (tIE <= tIS) return { success: false, message: 'Time-In end must be after Time-In start.' }
+  if (tOS <= tIE) return { success: false, message: 'Time-Out start must be after Time-In end.' }
+  if (tOE <= tOS) return { success: false, message: 'Time-Out end must be after Time-Out start.' }
 
   try {
     const event = await db.event.create({
-      data: { name, location, windowStart: start, windowEnd: end },
+      data: { name, location, timeInStart: tIS, timeInEnd: tIE, timeOutStart: tOS, timeOutEnd: tOE },
     })
     revalidatePath('/admin/events')
     revalidatePath('/admin')
@@ -56,7 +98,7 @@ export async function closeEventAction(eventId: string) {
 export async function getActiveEventsAction() {
   return db.event.findMany({
     where: { isClosed: false },
-    orderBy: { windowStart: 'asc' },
+    orderBy: { timeInStart: 'asc' },
   })
 }
 
@@ -73,8 +115,8 @@ export async function getAllEventsAction() {
 
 export interface ScanResult {
   success: boolean
-  scanMode: 'TIME_IN' | 'TIME_OUT'
-  isDuplicate?: boolean
+  scanMode: ScanMode
+  isLate?: boolean
   studentId: string
   studentName: string
   section: string
@@ -83,131 +125,164 @@ export interface ScanResult {
   message: string
 }
 
-/**
- * Records a scan for a given event.
- * - Looks up the student in the Student (alpha list) table.
- * - Uses scannedBarcode as the student identifier.
- * - Creates a lightweight AttendanceScan record (we store directly against
- *   scannedBarcode + eventId since AttendanceRecord requires a StudentProfile
- *   FK which may not exist for every alpha-list student).
- *
- * Storage strategy: we persist to a new lightweight table-free approach by
- * storing scan data in AttendanceSession tied to a sentinel AttendanceRecord
- * that uses the scannedBarcode as both the operationId seed and the
- * scannedBarcode field. Because the schema's AttendanceRecord.studentId
- * references StudentProfile (not Student), we create a minimal StudentProfile
- * on first scan if one doesn't already exist for this student number.
- */
 export async function recordScanAction(
   eventId: string,
   scannedId: string,
   officerId?: string
 ): Promise<ScanResult> {
-  const cleanId = scannedId.trim()
+  const cleanId  = scannedId.trim()
   const paddedId = cleanId.padStart(8, '0')
 
   // 1. Validate event
   const event = await db.event.findUnique({ where: { id: eventId } })
-  if (!event) return { success: false, scanMode: 'TIME_IN', studentId: cleanId, studentName: 'Unknown', section: 'N/A', message: 'Event not found.' }
-  if (event.isClosed) return { success: false, scanMode: 'TIME_IN', studentId: cleanId, studentName: 'Unknown', section: 'N/A', message: 'This event is already closed.' }
+  if (!event) {
+    return { success: false, scanMode: 'TIME_IN', studentId: cleanId, studentName: 'Unknown', section: 'N/A', message: 'Event not found.' }
+  }
+  if (event.isClosed) {
+    return { success: false, scanMode: 'TIME_IN', studentId: cleanId, studentName: 'Unknown', section: 'N/A', message: 'This event is already closed.' }
+  }
 
   const now = new Date()
 
-  // 2. Look up student in alpha list
+  // 2. Determine current window
+  const { status: windowStatus, isLate } = getWindowStatus(event, now)
+
+  if (windowStatus === 'UNCONFIGURED') {
+    return { success: false, scanMode: 'TIME_IN', studentId: cleanId, studentName: 'Unknown', section: 'N/A', message: 'Event has no attendance windows configured.' }
+  }
+  if (windowStatus === 'OUTSIDE') {
+    return { success: false, scanMode: 'TIME_IN', studentId: cleanId, studentName: 'Unknown', section: 'N/A', message: 'Outside of attendance window. Scanning is not allowed right now.' }
+  }
+
+  // 3. Look up student
   const alphaStudent = await db.student.findFirst({
     where: { OR: [{ id: paddedId }, { id: cleanId }] },
   })
 
   const studentName = alphaStudent?.fullName ?? `ID: ${cleanId}`
-  const section = alphaStudent?.section ?? 'Unregistered'
+  const section     = alphaStudent?.section ?? 'Unregistered'
 
-  // 3. Ensure a StudentProfile exists for this student number (required FK)
-  let profile = await db.studentProfile.findUnique({
-    where: { studentNumber: paddedId },
-  })
-
+  // 4. Ensure StudentProfile exists
+  let profile = await db.studentProfile.findUnique({ where: { studentNumber: paddedId } })
   if (!profile) {
-    // Create a minimal profile so we can link AttendanceRecord
     profile = await db.studentProfile.create({
       data: {
         studentNumber: paddedId,
         fullName: studentName,
         program: alphaStudent?.course ?? 'Unknown',
         yearLevel: parseInt(alphaStudent?.yearLevel ?? '1') || 1,
-        dwclEmail: `${paddedId}@student.dwcl.edu.ph`, // placeholder
+        dwclEmail: `${paddedId}@student.dwcl.edu.ph`,
       },
     })
   }
 
-  // 4. Find or create AttendanceRecord (unique per event + student)
+  // 5. Find or create AttendanceRecord
   let record = await db.attendanceRecord.findUnique({
     where: { eventId_studentId: { eventId, studentId: profile.id } },
   })
-
   if (!record) {
     record = await db.attendanceRecord.create({
       data: { eventId, studentId: profile.id, status: 'PRESENT' },
     })
   }
 
-  // 5. Determine TIME_IN vs TIME_OUT
-  const openSession = await db.attendanceSession.findFirst({
-    where: { attendanceRecordId: record.id, timeOut: null },
-    orderBy: { timeIn: 'desc' },
-  })
-
   const operationId = `${record.id}-${Date.now()}`
 
-  if (!openSession) {
-    // TIME_IN — create a new session
+  // 6. TIME_IN path
+  if (windowStatus === 'TIME_IN') {
+    // Check if already timed in
+    const existingSession = await db.attendanceSession.findFirst({
+      where: { attendanceRecordId: record.id },
+      orderBy: { timeIn: 'asc' },
+    })
+
+    if (existingSession) {
+      return {
+        success: false,
+        scanMode: 'TIME_IN',
+        studentId: cleanId,
+        studentName,
+        section,
+        message: `${studentName} already timed in.`,
+      }
+    }
+
     const session = await db.attendanceSession.create({
       data: {
         attendanceRecordId: record.id,
         timeIn: now,
+        isLateTimeIn: isLate,
         scannedBarcode: cleanId,
         operationId,
       },
     })
 
-    // Audit log
     if (officerId) {
       await db.auditLog.create({
         data: {
           officerId,
-          action: 'ATTENDANCE_TIME_IN',
+          action: isLate ? 'ATTENDANCE_TIME_IN_LATE' : 'ATTENDANCE_TIME_IN',
           targetRecord: 'AttendanceSession',
           recordId: session.id,
-          newVal: JSON.stringify({ studentId: cleanId, eventId, time: now }),
-          timestamp: now,
+          newVal: JSON.stringify({ studentId: cleanId, eventId, time: now, isLate }),
         },
-      }).catch(() => {}) // non-blocking
+      }).catch(() => {})
     }
 
     return {
       success: true,
       scanMode: 'TIME_IN',
+      isLate,
       studentId: cleanId,
       studentName,
       section,
       timeIn: now.toISOString(),
-      message: `Time-In recorded for ${studentName}`,
+      message: isLate
+        ? `Late Time-In recorded for ${studentName}`
+        : `Time-In recorded for ${studentName}`,
     }
-  } else {
-    // TIME_OUT — close the open session
-    const updated = await db.attendanceSession.update({
-      where: { id: openSession.id },
-      data: { timeOut: now },
+  }
+
+  // 7. TIME_OUT path
+  // windowStatus === 'TIME_OUT'
+  const existingSession = await db.attendanceSession.findFirst({
+    where: { attendanceRecordId: record.id },
+    orderBy: { timeIn: 'asc' },
+  })
+
+  if (existingSession?.timeOut) {
+    return {
+      success: false,
+      scanMode: 'TIME_OUT',
+      studentId: cleanId,
+      studentName,
+      section,
+      message: `${studentName} already timed out.`,
+    }
+  }
+
+  if (!existingSession) {
+    // No time-in → create a session with timeIn = timeOut (exception/late)
+    const session = await db.attendanceSession.create({
+      data: {
+        attendanceRecordId: record.id,
+        timeIn: now,
+        timeOut: now,
+        isLateTimeIn: true,
+        isLateTimeOut: false,
+        scannedBarcode: cleanId,
+        operationId,
+      },
     })
 
     if (officerId) {
       await db.auditLog.create({
         data: {
           officerId,
-          action: 'ATTENDANCE_TIME_OUT',
+          action: 'ATTENDANCE_TIME_OUT_NO_TIMEIN',
           targetRecord: 'AttendanceSession',
-          recordId: updated.id,
+          recordId: session.id,
           newVal: JSON.stringify({ studentId: cleanId, eventId, time: now }),
-          timestamp: now,
         },
       }).catch(() => {})
     }
@@ -215,17 +290,45 @@ export async function recordScanAction(
     return {
       success: true,
       scanMode: 'TIME_OUT',
+      isLate: true,
       studentId: cleanId,
       studentName,
       section,
-      timeIn: openSession.timeIn.toISOString(),
+      timeIn: undefined,
       timeOut: now.toISOString(),
-      message: `Time-Out recorded for ${studentName}`,
+      message: `Time-Out recorded for ${studentName} (no Time-In on record — marked late)`,
     }
   }
-}
 
-// ─── Event Attendance Report ─────────────────────────────────────────────────
+  // Close the open session
+  const updated = await db.attendanceSession.update({
+    where: { id: existingSession.id },
+    data: { timeOut: now },
+  })
+
+  if (officerId) {
+    await db.auditLog.create({
+      data: {
+        officerId,
+        action: 'ATTENDANCE_TIME_OUT',
+        targetRecord: 'AttendanceSession',
+        recordId: updated.id,
+        newVal: JSON.stringify({ studentId: cleanId, eventId, time: now }),
+      },
+    }).catch(() => {})
+  }
+
+  return {
+    success: true,
+    scanMode: 'TIME_OUT',
+    studentId: cleanId,
+    studentName,
+    section,
+    timeIn: existingSession.timeIn.toISOString(),
+    timeOut: now.toISOString(),
+    message: `Time-Out recorded for ${studentName}`,
+  }
+}
 
 export async function getEventAttendanceAction(eventId: string) {
   return db.attendanceRecord.findMany({

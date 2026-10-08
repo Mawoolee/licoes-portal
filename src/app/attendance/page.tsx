@@ -12,15 +12,19 @@ import {
   Users,
   CalendarDays,
   Lock,
+  Timer,
 } from 'lucide-react'
-import { getActiveEventsAction, recordScanAction } from '@/app/actions/attendance-actions'
+import { getActiveEventsAction, recordScanAction, getWindowStatus } from '@/app/actions/attendance-actions'
+import type { WindowStatus } from '@/app/actions/attendance-actions'
 
 type EventOption = {
   id: string
   name: string
   location: string
-  windowStart: Date
-  windowEnd: Date
+  timeInStart: Date | null
+  timeInEnd: Date | null
+  timeOutStart: Date | null
+  timeOutEnd: Date | null
   isClosed: boolean
 }
 
@@ -30,42 +34,84 @@ type ScanLog = {
   studentName: string
   section: string
   scanMode: 'TIME_IN' | 'TIME_OUT'
+  isLate?: boolean
   timeIn?: string
   timeOut?: string
   timestamp: string
-  status: 'PRESENT' | 'UNREGISTERED' | 'ERROR'
+  status: 'SUCCESS' | 'DUPLICATE' | 'BLOCKED' | 'UNREGISTERED' | 'ERROR'
+}
+
+function fmtTime(iso: string | undefined) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleTimeString('en-PH', {
+    hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+  })
+}
+
+function fmtWindow(d: Date | null | undefined) {
+  if (!d) return '—'
+  return new Date(d).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
+
+const WINDOW_LABELS: Record<WindowStatus, string> = {
+  TIME_IN: 'TIME IN',
+  TIME_OUT: 'TIME OUT',
+  OUTSIDE: 'Outside Window',
+  UNCONFIGURED: 'Not Configured',
+}
+
+const WINDOW_STYLES: Record<WindowStatus, string> = {
+  TIME_IN: 'bg-green-50 border-green-200 text-green-700',
+  TIME_OUT: 'bg-blue-50 border-blue-200 text-blue-700',
+  OUTSIDE: 'bg-amber-50 border-amber-200 text-amber-700',
+  UNCONFIGURED: 'bg-slate-50 border-slate-200 text-slate-500',
 }
 
 export default function AttendancePage() {
   const [events, setEvents] = useState<EventOption[]>([])
   const [selectedEventId, setSelectedEventId] = useState('')
   const [loadingEvents, setLoadingEvents] = useState(true)
+  const [currentWindow, setCurrentWindow] = useState<{ status: WindowStatus; isLate: boolean }>({
+    status: 'UNCONFIGURED',
+    isLate: false,
+  })
 
   const [scannedInput, setScannedInput] = useState('')
   const [logs, setLogs] = useState<ScanLog[]>([])
-  const [lastResult, setLastResult] = useState<{ success: boolean; message: string; scanMode?: 'TIME_IN' | 'TIME_OUT' } | null>(null)
+  const [lastResult, setLastResult] = useState<{
+    success: boolean
+    message: string
+    scanMode?: 'TIME_IN' | 'TIME_OUT'
+    isLate?: boolean
+  } | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Load active events on mount
   useEffect(() => {
-    getActiveEventsAction().then((evts) => {
-      setEvents(evts as EventOption[])
-      if (evts.length === 1) setSelectedEventId(evts[0].id)
-      setLoadingEvents(false)
-    })
+    loadEvents()
   }, [])
 
-  // Auto-focus input when an event is selected
+  // Update window status every 30 seconds
+  useEffect(() => {
+    if (!selectedEventId) return
+    const selected = events.find((e) => e.id === selectedEventId)
+    if (!selected) return
+    const update = () => setCurrentWindow(getWindowStatus(selected))
+    update()
+    const interval = setInterval(update, 30_000)
+    return () => clearInterval(interval)
+  }, [selectedEventId, events])
+
   useEffect(() => {
     if (selectedEventId) inputRef.current?.focus()
   }, [selectedEventId])
 
-  function refreshEvents() {
+  function loadEvents() {
     setLoadingEvents(true)
     getActiveEventsAction().then((evts) => {
       setEvents(evts as EventOption[])
+      if (evts.length === 1) setSelectedEventId(evts[0].id)
       setLoadingEvents(false)
     })
   }
@@ -92,11 +138,26 @@ export default function AttendancePage() {
       const result = await recordScanAction(selectedEventId, raw)
 
       playBeep(result.success)
-      setLastResult({ success: result.success, message: result.message, scanMode: result.scanMode })
+      setLastResult({
+        success: result.success,
+        message: result.message,
+        scanMode: result.scanMode,
+        isLate: result.isLate,
+      })
 
       const nowStr = new Date().toLocaleTimeString('en-PH', {
         hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
       })
+
+      const logStatus: ScanLog['status'] = result.success
+        ? 'SUCCESS'
+        : result.message.includes('already timed')
+        ? 'DUPLICATE'
+        : result.message.includes('Outside')
+        ? 'BLOCKED'
+        : result.message.includes('not found') || result.message.includes('Unregistered')
+        ? 'UNREGISTERED'
+        : 'ERROR'
 
       const log: ScanLog = {
         id: `${raw}-${Date.now()}`,
@@ -104,31 +165,27 @@ export default function AttendancePage() {
         studentName: result.studentName,
         section: result.section,
         scanMode: result.scanMode,
+        isLate: result.isLate,
         timeIn: result.timeIn,
         timeOut: result.timeOut,
         timestamp: nowStr,
-        status: result.success
-          ? 'PRESENT'
-          : result.message.includes('not found') || result.message.includes('NOT IN')
-          ? 'UNREGISTERED'
-          : 'ERROR',
+        status: logStatus,
       }
       setLogs((prev) => [log, ...prev])
-
-      // Re-focus for the next scan
       setTimeout(() => inputRef.current?.focus(), 50)
     })
   }
 
   const selectedEvent = events.find((e) => e.id === selectedEventId)
-  const presentCount = logs.filter((l) => l.status === 'PRESENT').length
+  const successCount = logs.filter((l) => l.status === 'SUCCESS').length
+  const canScan = currentWindow.status === 'TIME_IN' || currentWindow.status === 'TIME_OUT'
 
   return (
     <div
       className="min-h-screen bg-[var(--bg-cream)] text-[var(--text-primary)] p-6 space-y-5"
       onClick={() => inputRef.current?.focus()}
     >
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-[var(--brand-100)] pb-4">
         <div className="flex items-center gap-3">
           <div className="bg-[var(--brand-50)] text-[var(--brand-600)] p-2.5 rounded-xl border border-[var(--brand-100)]">
@@ -144,38 +201,37 @@ export default function AttendancePage() {
           </div>
         </div>
         <button
-          onClick={(e) => { e.stopPropagation(); refreshEvents() }}
+          onClick={(e) => { e.stopPropagation(); loadEvents() }}
           disabled={loadingEvents}
           className="text-xs text-[var(--text-muted)] hover:text-[var(--brand-600)] flex items-center gap-1.5 border border-[var(--brand-100)] px-3 py-1.5 rounded-lg"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loadingEvents ? 'animate-spin' : ''}`} />
-          Refresh Events
+          Refresh
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* ── Left column: event selector + scanner input ── */}
+        {/* Left column */}
         <div className="space-y-4">
+
           {/* Event selector */}
           <div className="bg-white border border-[var(--brand-100)] rounded-xl p-4 space-y-2">
             <label className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1.5 uppercase tracking-wide">
-              <CalendarDays className="w-3.5 h-3.5" /> Active Event
+              <CalendarDays className="w-3.5 h-3.5" /> Select Event
             </label>
             {loadingEvents ? (
               <p className="text-xs text-[var(--text-muted)] animate-pulse">Loading events…</p>
             ) : events.length === 0 ? (
-              <div className="text-xs text-amber-400 space-y-1">
+              <div className="text-xs text-amber-600 space-y-1">
                 <p>No open events found.</p>
-                <a href="/admin/events" className="underline hover:text-amber-300">
-                  Create an event in Admin →
-                </a>
+                <a href="/admin/events" className="underline">Create an event →</a>
               </div>
             ) : (
               <select
                 value={selectedEventId}
                 onChange={(e) => setSelectedEventId(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full bg-[var(--surface-alt)] border border-[var(--brand-100)] text-[var(--text-primary)] text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-[var(--brand-400)]"
+                className="w-full bg-[var(--surface-alt)] border border-[var(--brand-100)] text-[var(--text-primary)] text-xs px-3 py-2 rounded-lg focus:outline-none"
               >
                 <option value="">— Select an event —</option>
                 {events.map((ev) => (
@@ -184,6 +240,40 @@ export default function AttendancePage() {
               </select>
             )}
           </div>
+
+          {/* Window status + times */}
+          {selectedEvent && (
+            <div className={`rounded-xl border p-4 space-y-3 ${WINDOW_STYLES[currentWindow.status]}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1.5">
+                  <Timer className="w-3.5 h-3.5" /> Current Window
+                </span>
+                <span className="font-bold text-sm">{WINDOW_LABELS[currentWindow.status]}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="space-y-0.5">
+                  <p className="font-semibold opacity-60 uppercase tracking-wider">Time-In</p>
+                  <p className="font-mono">{fmtWindow(selectedEvent.timeInStart)} – {fmtWindow(selectedEvent.timeInEnd)}</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="font-semibold opacity-60 uppercase tracking-wider">Time-Out</p>
+                  <p className="font-mono">{fmtWindow(selectedEvent.timeOutStart)} – {fmtWindow(selectedEvent.timeOutEnd)}</p>
+                </div>
+              </div>
+
+              {currentWindow.status === 'OUTSIDE' && (
+                <p className="text-xs font-medium">
+                  ⚠ Scanning is locked. Outside of all attendance windows.
+                </p>
+              )}
+              {currentWindow.status === 'UNCONFIGURED' && (
+                <p className="text-xs font-medium">
+                  This event has no windows configured yet.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Scanner input */}
           <form
@@ -199,12 +289,23 @@ export default function AttendancePage() {
               type="text"
               value={scannedInput}
               onChange={(e) => setScannedInput(e.target.value)}
-              placeholder={selectedEventId ? 'Ready to scan…' : 'Select an event first'}
-              disabled={!selectedEventId || isPending}
+              placeholder={
+                !selectedEventId
+                  ? 'Select an event first'
+                  : !canScan
+                  ? 'Scanning locked — outside window'
+                  : `Ready to scan (${WINDOW_LABELS[currentWindow.status]})…`
+              }
+              disabled={!selectedEventId || !canScan || isPending}
               className="w-full bg-[var(--surface-alt)] border-2 border-[var(--brand-100)] focus:border-[var(--brand-400)] text-[var(--text-primary)] font-mono px-4 py-3 rounded-xl text-lg outline-none disabled:opacity-40 transition-all"
             />
+            {!canScan && selectedEventId && (
+              <p className="text-xs text-amber-600 font-medium flex items-center gap-1.5">
+                <Lock className="w-3 h-3" /> Scanner locked — outside attendance window
+              </p>
+            )}
             <p className="text-[10px] text-[var(--text-muted)] text-center">
-              The scanner auto-submits on Enter. Click anywhere to re-focus.
+              Scanner auto-submits on Enter. Click anywhere to re-focus.
             </p>
           </form>
 
@@ -213,21 +314,28 @@ export default function AttendancePage() {
             <div
               className={`p-4 rounded-xl border flex items-start gap-3 text-sm ${
                 lastResult.success
-                  ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
-                  : 'bg-red-950/70 border-red-500/40 text-red-300'
+                  ? lastResult.isLate
+                    ? 'bg-amber-50 border-amber-200 text-amber-700'
+                    : lastResult.scanMode === 'TIME_OUT'
+                    ? 'bg-blue-50 border-blue-200 text-blue-700'
+                    : 'bg-green-50 border-green-200 text-green-700'
+                  : 'bg-red-50 border-red-200 text-red-700'
               }`}
             >
               {lastResult.success ? (
-                lastResult.scanMode === 'TIME_OUT' ? (
-                  <LogOut className="w-5 h-5 shrink-0 mt-0.5" />
-                ) : (
-                  <LogIn className="w-5 h-5 shrink-0 mt-0.5" />
-                )
+                lastResult.scanMode === 'TIME_OUT'
+                  ? <LogOut className="w-5 h-5 shrink-0 mt-0.5" />
+                  : <LogIn className="w-5 h-5 shrink-0 mt-0.5" />
               ) : (
                 <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
               )}
               <div>
-                <p className="font-semibold text-xs">
+                <p className="font-semibold text-xs flex items-center gap-1.5">
+                  {lastResult.success
+                    ? lastResult.isLate
+                      ? '⚠ LATE — '
+                      : ''
+                    : ''}
                   {lastResult.success
                     ? lastResult.scanMode === 'TIME_OUT'
                       ? 'TIME-OUT Recorded'
@@ -245,15 +353,19 @@ export default function AttendancePage() {
               <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
                 <Users className="w-3 h-3" /> This Session
               </p>
-              <p className="text-2xl font-bold text-[var(--brand-500)]">{presentCount}</p>
+              <p className="text-2xl font-bold text-[var(--brand-500)]">{successCount}</p>
               <p className="text-[10px] text-[var(--text-muted)]">scans recorded</p>
             </div>
             <div className="bg-white border border-[var(--brand-100)] rounded-xl p-4 space-y-1">
               <p className="text-xs text-[var(--text-muted)] flex items-center gap-1">
-                <Clock className="w-3 h-3" /> Status
+                <Clock className="w-3 h-3" /> Mode
               </p>
-              <p className={`text-sm font-bold ${selectedEventId ? 'text-emerald-600' : 'text-[var(--text-muted)]'}`}>
-                {selectedEventId ? '● LIVE' : '○ Idle'}
+              <p className={`text-sm font-bold ${
+                currentWindow.status === 'TIME_IN' ? 'text-green-600' :
+                currentWindow.status === 'TIME_OUT' ? 'text-blue-600' :
+                'text-[var(--text-muted)]'
+              }`}>
+                {selectedEventId ? WINDOW_LABELS[currentWindow.status] : '○ Idle'}
               </p>
               <p className="text-[10px] text-[var(--text-muted)]">
                 {isPending ? 'Processing…' : 'Ready'}
@@ -262,7 +374,7 @@ export default function AttendancePage() {
           </div>
         </div>
 
-        {/* ── Right column: live session log table ── */}
+        {/* Right column: live log */}
         <div className="lg:col-span-2 bg-white border border-[var(--brand-100)] rounded-xl overflow-hidden flex flex-col">
           <div className="p-4 border-b border-[var(--brand-100)] flex items-center justify-between">
             <h2 className="font-semibold text-sm flex items-center gap-2">
@@ -298,38 +410,46 @@ export default function AttendancePage() {
                   {logs.map((log) => (
                     <tr key={log.id} className="hover:bg-[var(--bg-cream)]">
                       <td className="p-3 text-[var(--brand-600)] font-semibold">{log.studentId}</td>
-                      <td className="p-3 font-sans font-medium text-[var(--text-primary)] truncate max-w-[160px]">
+                      <td className="p-3 font-sans font-medium text-[var(--text-primary)] truncate max-w-[140px]">
                         {log.studentName}
                       </td>
                       <td className="p-3 text-[var(--text-muted)] font-sans">{log.section}</td>
                       <td className="p-3">
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans ${
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans border ${
                           log.scanMode === 'TIME_IN'
-                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                            : 'bg-amber-950 text-amber-400 border border-amber-800'
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : 'bg-blue-50 text-blue-700 border-blue-200'
                         }`}>
                           {log.scanMode === 'TIME_IN'
                             ? <><LogIn className="w-2.5 h-2.5" /> IN</>
                             : <><LogOut className="w-2.5 h-2.5" /> OUT</>}
-                        </span>
-                      </td>
-                      <td className="p-3 text-emerald-400">{log.timestamp}</td>
-                      <td className="p-3">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans ${
-                          log.status === 'PRESENT'
-                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                            : log.status === 'UNREGISTERED'
-                            ? 'bg-red-950 text-red-400 border border-red-800'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700'
-                        }`}>
-                          {log.status === 'UNREGISTERED' ? (
-                            <span className="flex items-center gap-1">
-                              <Lock className="w-2.5 h-2.5" /> NOT IN LIST
-                            </span>
-                          ) : (
-                            log.status
+                          {log.isLate && (
+                            <span className="ml-1 bg-amber-100 text-amber-700 px-1 rounded text-[9px]">LATE</span>
                           )}
                         </span>
+                      </td>
+                      <td className="p-3 text-[var(--text-muted)]">{log.timestamp}</td>
+                      <td className="p-3">
+                        {log.status === 'SUCCESS' && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans bg-green-50 text-green-700 border border-green-200">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> OK
+                          </span>
+                        )}
+                        {log.status === 'DUPLICATE' && (
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans bg-amber-50 text-amber-700 border border-amber-200">
+                            DUPLICATE
+                          </span>
+                        )}
+                        {log.status === 'BLOCKED' && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans bg-slate-50 text-slate-500 border border-slate-200">
+                            <Lock className="w-2.5 h-2.5" /> BLOCKED
+                          </span>
+                        )}
+                        {(log.status === 'UNREGISTERED' || log.status === 'ERROR') && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold font-sans bg-red-50 text-red-600 border border-red-200">
+                            <AlertTriangle className="w-2.5 h-2.5" /> {log.status}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}

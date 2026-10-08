@@ -6,19 +6,33 @@ export default withAuth(
     const token = req.nextauth.token
     const path = req.nextUrl.pathname
 
-    // 1. Redirect sa /login kapag walang token
     if (!token) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
 
     const roles = (token.roles as string[]) || []
+    const status = token.status as string | undefined
 
-    // 2. Protektahan ang /treasurer routes (Dapat may TREASURER o ADMIN role)
-    if (path.startsWith('/treasurer') && !roles.includes('TREASURER') && !roles.includes('ADMIN')) {
+    // PENDING users: only allow access to List of Students (/admin/roster)
+    if (status === 'PENDING') {
+      if (!path.startsWith('/admin/roster') && !path.startsWith('/pending')) {
+        return NextResponse.redirect(new URL('/pending', req.url))
+      }
+      return NextResponse.next()
+    }
+
+    // ACTIVE users — role-based route guards
+
+    // /treasurer (TREASURER or ADMIN)
+    if (
+      path.startsWith('/treasurer') &&
+      !roles.includes('TREASURER') &&
+      !roles.includes('ADMIN')
+    ) {
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // 3. Protektahan ang /attendance route (Dapat may ATTENDANCE_OFFICER, TREASURER, o ADMIN role)
+    // /attendance (ATTENDANCE_OFFICER, TREASURER, or ADMIN)
     if (
       path.startsWith('/attendance') &&
       !roles.includes('ATTENDANCE_OFFICER') &&
@@ -28,12 +42,12 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // 4. Protektahan ang /admin routes (ADMIN lamang)
+    // /admin (ADMIN only) — but /admin/roster is accessible to PENDING too (handled above)
     if (path.startsWith('/admin') && !roles.includes('ADMIN')) {
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // 5. Protektahan ang /finance routes (FINANCE_OFFICER o ADMIN)
+    // /finance (FINANCE_OFFICER or ADMIN)
     if (
       path.startsWith('/finance') &&
       !roles.includes('FINANCE_OFFICER') &&
@@ -42,7 +56,7 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // 6. Protektahan ang /reports/attendance (ADMIN o FINANCE_OFFICER)
+    // /reports/attendance (ADMIN or FINANCE_OFFICER)
     if (
       path === '/reports/attendance' &&
       !roles.includes('ADMIN') &&
@@ -51,7 +65,7 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // 7. Protektahan ang /reports/payments (ADMIN o TREASURER)
+    // /reports/payments (ADMIN or TREASURER)
     if (
       path === '/reports/payments' &&
       !roles.includes('ADMIN') &&
@@ -60,7 +74,7 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // 8. Protektahan ang /auditor routes (AUDITOR o ADMIN)
+    // /auditor (AUDITOR or ADMIN)
     if (
       path.startsWith('/auditor') &&
       !roles.includes('AUDITOR') &&
@@ -86,5 +100,6 @@ export const config = {
     '/finance/:path*',
     '/reports/:path*',
     '/auditor/:path*',
+    '/pending',
   ],
 }

@@ -28,7 +28,7 @@ export default async function RosterPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Student Roster</h1>
+          <h1 className="text-2xl font-bold tracking-tight">List of Students</h1>
           <p className="text-sm text-slate-500 mt-1">
             {totalStudents > 0
               ? `${totalStudents.toLocaleString()} students across ${rows.length} program${rows.length !== 1 ? 's' : ''}`

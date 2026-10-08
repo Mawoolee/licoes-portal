@@ -42,7 +42,10 @@ export async function POST(request: Request) {
     }
 
     const now = new Date()
-    if (now < event.windowStart || now > event.windowEnd) {
+    const outsideAllWindows =
+      (!event.timeInStart && !event.timeOutStart) ||
+      (event.timeOutEnd && now > new Date(event.timeOutEnd))
+    if (outsideAllWindows) {
       return NextResponse.json({ error: 'Scan attempted outside of official event Attendance Window.' }, { status: 400 })
     }
 
