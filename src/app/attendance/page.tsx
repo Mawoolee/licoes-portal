@@ -14,8 +14,9 @@ import {
   Lock,
   Timer,
 } from 'lucide-react'
-import { getActiveEventsAction, recordScanAction, getWindowStatus } from '@/app/actions/attendance-actions'
-import type { WindowStatus } from '@/app/actions/attendance-actions'
+import { getActiveEventsAction, recordScanAction } from '@/app/actions/attendance-actions'
+import { getWindowStatus } from '@/lib/attendance-utils'
+import type { WindowStatus } from '@/lib/attendance-utils'
 
 type EventOption = {
   id: string

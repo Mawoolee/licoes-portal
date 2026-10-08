@@ -124,117 +124,131 @@ export default function EventsClient({ initialEvents }: { initialEvents: EventRo
         </button>
       </div>
 
-      {/* Create Form */}
+      {/* Create Event Modal */}
       {showForm && (
-        <div className="rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] p-6 shadow-sm space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-sm text-[var(--text-primary)]">Create New Event</h2>
-            <button onClick={() => { setShowForm(false); resetForm() }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <form onSubmit={handleCreate} className="space-y-5">
-            {/* Basic info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--text-muted)]">Event Name *</label>
-                <input
-                  value={name} onChange={(e) => setName(e.target.value)} required
-                  placeholder="e.g. LICOES General Assembly 2026"
-                  className="w-full px-3 py-2 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface-alt)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--text-muted)]">Location *</label>
-                <input
-                  value={location} onChange={(e) => setLocation(e.target.value)} required
-                  placeholder="e.g. DWCL Gymnasium"
-                  className="w-full px-3 py-2 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface-alt)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
-                />
-              </div>
-            </div>
-
-            {/* Time-In window */}
-            <div className="rounded-lg border border-green-200 bg-green-50 p-4 space-y-3">
-              <p className="text-xs font-bold text-green-700 flex items-center gap-1.5 uppercase tracking-wider">
-                <LogIn className="w-3.5 h-3.5" /> Time-In Window
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-green-700">Start *</label>
-                  <input
-                    type="datetime-local" value={timeInStart}
-                    onChange={(e) => setTimeInStart(e.target.value)} required
-                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-green-400"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-green-700">Cut-off *</label>
-                  <input
-                    type="datetime-local" value={timeInEnd}
-                    onChange={(e) => setTimeInEnd(e.target.value)} required
-                    className="w-full px-3 py-2 text-sm border border-green-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-green-400"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Time-Out window */}
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
-              <p className="text-xs font-bold text-blue-700 flex items-center gap-1.5 uppercase tracking-wider">
-                <LogOut className="w-3.5 h-3.5" /> Time-Out Window
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-blue-700">Start *</label>
-                  <input
-                    type="datetime-local" value={timeOutStart}
-                    onChange={(e) => setTimeOutStart(e.target.value)} required
-                    className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-blue-700">Cut-off *</label>
-                  <input
-                    type="datetime-local" value={timeOutEnd}
-                    onChange={(e) => setTimeOutEnd(e.target.value)} required
-                    className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {formMsg && (
-              <div className={`p-3 rounded-lg flex items-center gap-2 text-sm font-medium ${
-                formMsg.type === 'success'
-                  ? 'bg-green-50 border border-green-200 text-green-700'
-                  : 'bg-red-50 border border-red-200 text-red-700'
-              }`}>
-                {formMsg.type === 'success'
-                  ? <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  : <AlertCircle className="w-4 h-4 shrink-0" />}
-                {formMsg.text}
-              </div>
-            )}
-
-            <div className="flex gap-3">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => { setShowForm(false); resetForm() }}
+        >
+          <div
+            className="relative w-full max-w-2xl bg-[var(--surface)] rounded-2xl border border-[var(--brand-100)] shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-8 py-5 border-b border-[var(--brand-100)]">
+              <h2 className="font-bold text-xl text-[var(--text-primary)]">Create New Event</h2>
               <button
-                type="submit" disabled={isPending}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-lg disabled:opacity-50 transition-colors"
-              >
-                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                Create Event
-              </button>
-              <button
-                type="button"
                 onClick={() => { setShowForm(false); resetForm() }}
-                className="px-4 py-2 text-sm border border-[var(--brand-100)] rounded-lg hover:bg-[var(--brand-50)] font-medium text-[var(--text-muted)] transition-colors"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
               >
-                Cancel
+                <X className="w-5 h-5" />
               </button>
             </div>
-          </form>
+
+            {/* Modal body */}
+            <form onSubmit={handleCreate} className="p-8 space-y-6">
+              {/* Basic info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-[var(--text-muted)]">Event Name *</label>
+                  <input
+                    value={name} onChange={(e) => setName(e.target.value)} required
+                    placeholder="e.g. LICOES General Assembly 2026"
+                    className="w-full px-4 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface-alt)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-[var(--text-muted)]">Location *</label>
+                  <input
+                    value={location} onChange={(e) => setLocation(e.target.value)} required
+                    placeholder="e.g. DWCL Gymnasium"
+                    className="w-full px-4 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface-alt)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
+                  />
+                </div>
+              </div>
+
+              {/* Time-In window */}
+              <div className="rounded-lg border border-green-200 bg-green-50 p-5 space-y-4">
+                <p className="text-sm font-bold text-green-700 flex items-center gap-1.5 uppercase tracking-wider">
+                  <LogIn className="w-4 h-4" /> Time-In Window
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-green-700">Start *</label>
+                    <input
+                      type="datetime-local" value={timeInStart}
+                      onChange={(e) => setTimeInStart(e.target.value)} required
+                      className="w-full px-4 py-2.5 text-sm border border-green-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-green-400"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-green-700">Cut-off *</label>
+                    <input
+                      type="datetime-local" value={timeInEnd}
+                      onChange={(e) => setTimeInEnd(e.target.value)} required
+                      className="w-full px-4 py-2.5 text-sm border border-green-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-green-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Time-Out window */}
+              <div className="rounded-lg border border-[var(--brand-100)] bg-[var(--brand-50)] p-5 space-y-4">
+                <p className="text-sm font-bold text-[var(--brand-600)] flex items-center gap-1.5 uppercase tracking-wider">
+                  <LogOut className="w-4 h-4" /> Time-Out Window
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-[var(--brand-600)]">Start *</label>
+                    <input
+                      type="datetime-local" value={timeOutStart}
+                      onChange={(e) => setTimeOutStart(e.target.value)} required
+                      className="w-full px-4 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-[var(--brand-600)]">Cut-off *</label>
+                    <input
+                      type="datetime-local" value={timeOutEnd}
+                      onChange={(e) => setTimeOutEnd(e.target.value)} required
+                      className="w-full px-4 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {formMsg && (
+                <div className={`p-3 rounded-lg flex items-center gap-2 text-sm font-medium ${
+                  formMsg.type === 'success'
+                    ? 'bg-green-50 border border-green-200 text-green-700'
+                    : 'bg-red-50 border border-red-200 text-red-700'
+                }`}>
+                  {formMsg.type === 'success'
+                    ? <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    : <AlertCircle className="w-4 h-4 shrink-0" />}
+                  {formMsg.text}
+                </div>
+              )}
+
+              {/* Modal footer */}
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="submit" disabled={isPending}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Create Event
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); resetForm() }}
+                  className="px-6 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg hover:bg-[var(--brand-50)] font-medium text-[var(--text-muted)] transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

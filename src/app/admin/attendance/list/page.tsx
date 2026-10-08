@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AttendanceListPage() {
   const events = await db.event.findMany({
-    orderBy: { windowStart: 'desc' },
+    orderBy: { timeInStart: 'desc' },
     include: {
       _count: { select: { attendanceRecords: true } },
     },
@@ -16,8 +16,8 @@ export default async function AttendanceListPage() {
 
   function getEventStatus(event: (typeof events)[0]) {
     if (event.isClosed) return 'closed'
-    if (new Date(event.windowEnd) < now) return 'ended'
-    if (new Date(event.windowStart) <= now) return 'live'
+    if (event.timeOutEnd && new Date(event.timeOutEnd) < now) return 'ended'
+    if (event.timeInStart && new Date(event.timeInStart) <= now) return 'live'
     return 'upcoming'
   }
 
@@ -84,7 +84,7 @@ export default async function AttendanceListPage() {
                       </span>
                       <span className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
                         <Clock className="w-3 h-3" />
-                        {new Date(event.windowStart).toLocaleDateString('en-PH', {
+                        {new Date(event.timeInStart ?? event.createdAt).toLocaleDateString('en-PH', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',

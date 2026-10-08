@@ -71,7 +71,7 @@ export default async function EventAttendancePage({
               </span>
               <span className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
                 <Clock className="w-3 h-3" />
-                {new Date(event.windowStart).toLocaleDateString('en-PH', {
+                {new Date(event.timeInStart ?? event.createdAt).toLocaleDateString('en-PH', {
                   month: 'long',
                   day: 'numeric',
                   year: 'numeric',
