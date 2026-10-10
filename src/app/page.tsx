@@ -42,11 +42,17 @@ export default async function WelcomePage() {
               href="/login"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--brand-500)] px-7 py-3 text-base font-semibold text-white hover:bg-[var(--brand-600)] transition-colors shadow-sm"
             >
-              Login / Sign Up
+              Login
+            </Link>
+            <Link
+              href="/signup"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--brand-500)] px-7 py-3 text-base font-semibold text-[var(--brand-500)] hover:bg-[var(--brand-50)] transition-colors"
+            >
+              Sign Up
             </Link>
           </div>
           <p className="text-sm text-[var(--text-muted)]">
-            Gamitin ang iyong <span className="font-semibold">@dwc-legazpi.edu</span> Google account
+            Use your <span className="font-semibold">@dwc-legazpi.edu</span> Google account
           </p>
         </div>
 

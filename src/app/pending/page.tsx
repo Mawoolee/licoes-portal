@@ -14,10 +14,10 @@ export default function PendingPage() {
             Account Pending Approval
           </h1>
           <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-            Ang iyong account ay naka-submit na at naghihintay ng approval mula sa admin.
-            Maaari ka na mag-access ng{' '}
+            Your account has been submitted and is waiting for admin approval.
+            You can access the{' '}
             <span className="font-semibold text-[var(--text-primary)]">List of Students</span>{' '}
-            habang hinihintay.
+            while waiting.
           </p>
         </div>
 

@@ -1,5 +1,7 @@
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
+import CredentialsProvider from 'next-auth/providers/credentials'
+import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 
 const DWCL_DOMAIN = '@dwc-legazpi.edu'
@@ -11,73 +13,78 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
+    CredentialsProvider({
+      name: 'credentials',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null
+        const email = credentials.email.toLowerCase().trim()
+        if (!email.endsWith(DWCL_DOMAIN)) return null
+
+        const officer = await db.officer.findUnique({ where: { email } })
+        if (!officer) return null
+        if (officer.status === 'REJECTED') return null
+
+        // Google-only accounts (empty passwordHash) skip the password check.
+        // Accounts with a password must match it.
+        if (officer.passwordHash) {
+          const valid = await bcrypt.compare(credentials.password, officer.passwordHash)
+          if (!valid) return null
+        }
+
+        return {
+          id: officer.id,
+          name: officer.name,
+          email: officer.email,
+          roles: officer.roles,
+          status: officer.status,
+        } as any
+      },
+    }),
   ],
-  pages: {
-    signIn: '/login',
-    error: '/login',
-  },
-  session: {
-    strategy: 'jwt',
-    maxAge: 8 * 60 * 60,
-  },
+  pages: { signIn: '/login', error: '/login' },
+  session: { strategy: 'jwt', maxAge: 8 * 60 * 60 },
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
+      if (account?.provider !== 'google') return true
       const email = user.email?.toLowerCase().trim()
+      if (!email || !email.endsWith(DWCL_DOMAIN)) return '/login?error=not_dwcl'
 
-      // Only allow DWCL school accounts
-      if (!email || !email.endsWith(DWCL_DOMAIN)) {
-        return '/login?error=not_dwcl'
-      }
-
-      // Find or auto-create the officer record
       let officer = await db.officer.findUnique({ where: { email } })
-
       if (!officer) {
-        // First time signing in — check if this is the designated admin account
         const isAdmin = email === ADMIN_EMAIL
-
         officer = await db.officer.create({
           data: {
             name: user.name ?? email.split('@')[0],
             email,
-            passwordHash: '', // not used for Google accounts
+            passwordHash: '',
             roles: isAdmin ? ['ADMIN'] : [],
             status: isAdmin ? 'ACTIVE' : 'PENDING',
           },
         })
-
         await db.auditLog.create({
           data: {
             action: isAdmin ? 'ACCOUNT_ADMIN_CREATED' : 'ACCOUNT_SIGNUP',
             targetRecord: 'Officer',
             recordId: officer.id,
-            newVal: JSON.stringify({
-              name: officer.name,
-              email,
-              status: officer.status,
-              roles: officer.roles,
-              method: 'google',
-            }),
+            newVal: JSON.stringify({ email, status: officer.status, method: 'google' }),
           },
         })
-      } else if (email === ADMIN_EMAIL && (officer.status !== 'ACTIVE' || !officer.roles.includes('ADMIN'))) {
-        // Ensure the admin account always has ADMIN role and ACTIVE status
-        await db.officer.update({
-          where: { email },
-          data: { roles: ['ADMIN'], status: 'ACTIVE' },
-        })
+      } else if (
+        email === ADMIN_EMAIL &&
+        (officer.status !== 'ACTIVE' || !officer.roles.includes('ADMIN'))
+      ) {
+        await db.officer.update({ where: { email }, data: { roles: ['ADMIN'], status: 'ACTIVE' } })
       }
 
-      // Rejected accounts cannot log in
-      if (officer.status === 'REJECTED') {
-        return '/login?error=rejected'
-      }
-
+      if (officer.status === 'REJECTED') return '/login?error=rejected'
       return true
     },
 
     async jwt({ token, user, account }) {
-      // On first sign-in, load officer data from DB
       if (account && user?.email) {
         const email = user.email.toLowerCase().trim()
         const officer = await db.officer.findUnique({ where: { email } })

@@ -3,6 +3,10 @@
 @tailwind utilities;
 @import "tailwindcss";
 
+/* Force class-based dark mode so OS dark preference doesn't break the light-only theme.
+   Since no element ever gets a "dark" class, all dark: variants become permanently inactive. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --brand-50: #fee5d9;
   --brand-100: #fcbba1;

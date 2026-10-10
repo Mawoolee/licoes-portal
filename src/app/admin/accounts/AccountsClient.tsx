@@ -73,7 +73,7 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
       })
       if (!res.ok) {
         const data = await res.json()
-        alert(data.message ?? 'May error na naganap.')
+        alert(data.message ?? 'An error occurred.')
       } else {
         router.refresh()
       }

@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
     // Validate inputs
     if (!name || !email || !password) {
-      return NextResponse.json({ message: 'Lahat ng fields ay required.' }, { status: 400 })
+      return NextResponse.json({ message: 'All fields are required.' }, { status: 400 })
     }
 
     const normalizedEmail = email.toLowerCase().trim()
@@ -18,14 +18,14 @@ export async function POST(req: NextRequest) {
     // Enforce DWCL domain
     if (!normalizedEmail.endsWith(DWCL_DOMAIN)) {
       return NextResponse.json(
-        { message: `Dapat DWCL school email ang gamitin (${DWCL_DOMAIN}).` },
+        { message: `Please use your DWCL school email (${DWCL_DOMAIN}).` },
         { status: 400 }
       )
     }
 
     if (password.length < 8) {
       return NextResponse.json(
-        { message: 'Dapat hindi bababa sa 8 characters ang password.' },
+        { message: 'Password must be at least 8 characters.' },
         { status: 400 }
       )
     }
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     const existing = await db.officer.findUnique({ where: { email: normalizedEmail } })
     if (existing) {
       return NextResponse.json(
-        { message: 'May account na na may ganitong email address.' },
+        { message: 'An account with this email already exists.' },
         { status: 409 }
       )
     }

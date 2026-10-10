@@ -4,16 +4,8 @@ import { signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LogOut,
-  ShieldCheck,
-  FileSpreadsheet,
-  LayoutDashboard,
-  CalendarDays,
-  Banknote,
-  Settings,
-  CreditCard,
-  ClipboardList,
-  UserCog,
+  LogOut, ShieldCheck, FileSpreadsheet, LayoutDashboard,
+  CalendarDays, Wallet, Settings, ClipboardList, UserCog,
 } from 'lucide-react'
 
 type NavItem = {
@@ -48,9 +40,9 @@ const NAV_ITEMS: NavItem[] = [
     hiddenFromPending: true,
   },
   {
-    href: '/admin/collection-periods',
-    label: 'Collection Periods',
-    icon: Banknote,
+    href: '/admin/membership-fee',
+    label: 'Membership Fee',
+    icon: Wallet,
     exact: false,
     hiddenFromPending: true,
   },
@@ -65,13 +57,6 @@ const NAV_ITEMS: NavItem[] = [
     href: '/admin/config',
     label: 'Configuration',
     icon: Settings,
-    exact: false,
-    hiddenFromPending: true,
-  },
-  {
-    href: '/treasurer/claims',
-    label: 'Payment Claims',
-    icon: CreditCard,
     exact: false,
     hiddenFromPending: true,
   },
@@ -156,7 +141,7 @@ export default function AdminLayoutClient({
           {/* Pending notice */}
           {isPending && (
             <div className="mx-1 mb-2 rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-700 leading-snug">
-              Ang iyong account ay naghihintay ng approval. Limited lang ang access mo sa ngayon.
+              Your account is awaiting approval. Access is limited for now.
             </div>
           )}
 
