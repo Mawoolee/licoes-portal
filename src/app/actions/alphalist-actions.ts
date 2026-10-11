@@ -200,3 +200,38 @@ export async function getStudentsAction(page = 1, pageSize = 50, search = '') {
     return { success: false, students: [], total: 0, page, pageSize }
   }
 }
+
+// Server action to manually add a single student
+export async function addStudentAction(input: {
+  id: string
+  fullName: string
+  course: string
+  yearLevel: string
+}) {
+  try {
+    const cleanId = input.id.trim().padStart(8, '0')
+    const fullName = input.fullName.trim()
+    const course = input.course.trim()
+    const yearLevel = input.yearLevel.trim()
+
+    if (!cleanId || !fullName || !course || !yearLevel) {
+      return { success: false, message: 'All fields are required.' }
+    }
+
+    await db.student.upsert({
+      where: { id: cleanId },
+      update: { fullName, course, yearLevel, section: `${course} ${yearLevel}` },
+      create: { id: cleanId, fullName, course, yearLevel, section: `${course} ${yearLevel}` },
+    })
+
+    // Also update in-memory map
+    const record: StudentRecord = { id: cleanId, fullName, course, yearLevel, section: `${course} ${yearLevel}` }
+    globalStudentMap[cleanId] = record
+    globalStudentMap[String(parseInt(cleanId, 10))] = record
+
+    return { success: true, message: `Student ${fullName} (${cleanId}) added successfully.` }
+  } catch (error) {
+    console.error('addStudentAction error:', error)
+    return { success: false, message: 'Failed to add student. Please try again.' }
+  }
+}

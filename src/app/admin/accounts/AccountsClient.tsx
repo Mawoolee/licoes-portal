@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AccountStatus, Role } from '@prisma/client'
-import { CheckCircle, XCircle, Clock, ShieldCheck, User } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, ShieldCheck, User, Trash2, AlertTriangle } from 'lucide-react'
 
 type OfficerRow = {
   id: string
@@ -31,39 +31,29 @@ const ROLE_LABELS: Record<Role, string> = {
 }
 
 const STATUS_CONFIG = {
-  PENDING: {
-    label: 'Pending',
-    icon: Clock,
-    className: 'bg-amber-50 text-amber-600 border-amber-200',
-  },
-  ACTIVE: {
-    label: 'Active',
-    icon: CheckCircle,
-    className: 'bg-green-50 text-green-600 border-green-200',
-  },
-  REJECTED: {
-    label: 'Rejected',
-    icon: XCircle,
-    className: 'bg-red-50 text-red-600 border-red-200',
-  },
+  PENDING:  { label: 'Pending',  icon: Clock,         className: 'bg-amber-50 text-amber-600 border-amber-200' },
+  ACTIVE:   { label: 'Active',   icon: CheckCircle,   className: 'bg-green-50 text-green-600 border-green-200' },
+  REJECTED: { label: 'Rejected', icon: XCircle,       className: 'bg-[var(--brand-50)] text-[var(--brand-600)] border-[var(--brand-100)]' },
 }
+
+type ConfirmState = {
+  title: string
+  message: string
+  onConfirm: () => void
+  danger?: boolean
+} | null
 
 export default function AccountsClient({ officers }: { officers: OfficerRow[] }) {
   const router = useRouter()
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [editRoles, setEditRoles] = useState<Record<string, Role[]>>({})
   const [activeTab, setActiveTab] = useState<AccountStatus | 'ALL'>('PENDING')
+  const [confirm, setConfirm] = useState<ConfirmState>(null)
 
   const pendingCount = officers.filter((o) => o.status === 'PENDING').length
+  const displayed = activeTab === 'ALL' ? officers : officers.filter((o) => o.status === activeTab)
 
-  const displayed =
-    activeTab === 'ALL' ? officers : officers.filter((o) => o.status === activeTab)
-
-  async function updateAccount(
-    officerId: string,
-    action: 'approve' | 'reject' | 'update-roles',
-    roles?: Role[]
-  ) {
+  async function callApi(officerId: string, action: string, roles?: Role[]) {
     setLoadingId(officerId)
     try {
       const res = await fetch('/api/admin/accounts', {
@@ -79,7 +69,12 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
       }
     } finally {
       setLoadingId(null)
+      setConfirm(null)
     }
+  }
+
+  function askConfirm(cfg: ConfirmState) {
+    setConfirm(cfg)
   }
 
   function getRolesForOfficer(officer: OfficerRow): Role[] {
@@ -94,14 +89,49 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
   }
 
   const tabs: { key: AccountStatus | 'ALL'; label: string }[] = [
-    { key: 'PENDING', label: `Pending (${pendingCount})` },
-    { key: 'ACTIVE', label: 'Active' },
+    { key: 'PENDING',  label: `Pending (${pendingCount})` },
+    { key: 'ACTIVE',   label: 'Active' },
     { key: 'REJECTED', label: 'Rejected' },
-    { key: 'ALL', label: 'All' },
+    { key: 'ALL',      label: 'All' },
   ]
 
   return (
     <div className="space-y-4">
+      {/* Confirmation Modal */}
+      {confirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl border border-[var(--brand-100)] shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-full shrink-0 ${confirm.danger ? 'bg-red-50' : 'bg-amber-50'}`}>
+                <AlertTriangle className={`w-5 h-5 ${confirm.danger ? 'text-red-500' : 'text-amber-500'}`} />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-[var(--text-primary)]">{confirm.title}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">{confirm.message}</p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirm(null)}
+                className="px-4 py-2 text-sm border border-[var(--brand-100)] rounded-lg hover:bg-[var(--brand-50)] font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirm.onConfirm}
+                className={`px-4 py-2 text-sm text-white font-semibold rounded-lg transition-colors ${
+                  confirm.danger
+                    ? 'bg-red-500 hover:bg-red-600'
+                    : 'bg-[var(--brand-500)] hover:bg-[var(--brand-600)]'
+                }`}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex gap-1 border-b border-[var(--brand-100)]">
         {tabs.map(({ key, label }) => (
@@ -136,35 +166,23 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
           const isLoading = loadingId === officer.id
 
           return (
-            <div
-              key={officer.id}
-              className="rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] p-5 space-y-4"
-            >
-              {/* Header row */}
+            <div key={officer.id} className="rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] p-5 space-y-4">
+              {/* Header */}
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-[var(--brand-50)] flex items-center justify-center shrink-0">
                     <User className="w-4 h-4 text-[var(--brand-500)]" />
                   </div>
                   <div>
-                    <p className="font-semibold text-sm text-[var(--text-primary)]">
-                      {officer.name}
-                    </p>
+                    <p className="font-semibold text-sm text-[var(--text-primary)]">{officer.name}</p>
                     <p className="text-xs text-[var(--text-muted)]">{officer.email}</p>
                     <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
                       Signed up:{' '}
-                      {new Date(officer.createdAt).toLocaleDateString('en-PH', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {new Date(officer.createdAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                     </p>
                   </div>
                 </div>
-
-                <span
-                  className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusCfg.className}`}
-                >
+                <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusCfg.className}`}>
                   <StatusIcon className="w-3.5 h-3.5" />
                   {statusCfg.label}
                 </span>
@@ -172,9 +190,7 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
 
               {/* Roles */}
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-                  Roles
-                </p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">Roles</p>
                 <div className="flex flex-wrap gap-2">
                   {ALL_ROLES.map((role) => {
                     const selected = currentRoles.includes(role)
@@ -202,7 +218,11 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
                 {officer.status === 'PENDING' && (
                   <>
                     <button
-                      onClick={() => updateAccount(officer.id, 'approve', currentRoles)}
+                      onClick={() => askConfirm({
+                        title: 'Approve Account',
+                        message: `Approve the account of ${officer.name} (${officer.email})?`,
+                        onConfirm: () => callApi(officer.id, 'approve', currentRoles),
+                      })}
                       disabled={isLoading}
                       className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors disabled:opacity-60"
                     >
@@ -210,9 +230,14 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
                       {isLoading ? 'Processing...' : 'Approve'}
                     </button>
                     <button
-                      onClick={() => updateAccount(officer.id, 'reject')}
+                      onClick={() => askConfirm({
+                        title: 'Reject Account',
+                        message: `Reject the account of ${officer.name}? They will not be able to access the system.`,
+                        danger: true,
+                        onConfirm: () => callApi(officer.id, 'reject'),
+                      })}
                       disabled={isLoading}
-                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors disabled:opacity-60"
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[var(--brand-500)] text-white font-semibold hover:bg-[var(--brand-600)] transition-colors disabled:opacity-60"
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       {isLoading ? 'Processing...' : 'Reject'}
@@ -222,7 +247,7 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
 
                 {officer.status === 'ACTIVE' && rolesChanged && (
                   <button
-                    onClick={() => updateAccount(officer.id, 'update-roles', currentRoles)}
+                    onClick={() => callApi(officer.id, 'update-roles', currentRoles)}
                     disabled={isLoading}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-[var(--brand-500)] text-white font-semibold hover:bg-[var(--brand-600)] transition-colors disabled:opacity-60"
                   >
@@ -233,7 +258,12 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
 
                 {officer.status === 'ACTIVE' && (
                   <button
-                    onClick={() => updateAccount(officer.id, 'reject')}
+                    onClick={() => askConfirm({
+                      title: 'Deactivate Account',
+                      message: `Deactivate the account of ${officer.name}? They will lose access to the system.`,
+                      danger: true,
+                      onConfirm: () => callApi(officer.id, 'reject'),
+                    })}
                     disabled={isLoading}
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-red-200 text-red-500 font-semibold hover:bg-red-50 transition-colors disabled:opacity-60"
                   >
@@ -243,14 +273,33 @@ export default function AccountsClient({ officers }: { officers: OfficerRow[] })
                 )}
 
                 {officer.status === 'REJECTED' && (
-                  <button
-                    onClick={() => updateAccount(officer.id, 'approve', currentRoles)}
-                    disabled={isLoading}
-                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors disabled:opacity-60"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    {isLoading ? 'Processing...' : 'Re-activate'}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => askConfirm({
+                        title: 'Re-activate Account',
+                        message: `Re-activate the account of ${officer.name} (${officer.email})?`,
+                        onConfirm: () => callApi(officer.id, 'approve', currentRoles),
+                      })}
+                      disabled={isLoading}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors disabled:opacity-60"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      {isLoading ? 'Processing...' : 'Re-activate'}
+                    </button>
+                    <button
+                      onClick={() => askConfirm({
+                        title: 'Delete Account',
+                        message: `Permanently delete the account of ${officer.name} (${officer.email})? This cannot be undone.`,
+                        danger: true,
+                        onConfirm: () => callApi(officer.id, 'delete'),
+                      })}
+                      disabled={isLoading}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-red-200 bg-red-50 text-red-600 font-semibold hover:bg-red-100 transition-colors disabled:opacity-60"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {isLoading ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </>
                 )}
               </div>
             </div>

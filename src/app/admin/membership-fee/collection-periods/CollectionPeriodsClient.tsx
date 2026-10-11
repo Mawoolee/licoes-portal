@@ -156,15 +156,15 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Collection Periods</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">Collection Periods</h1>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
             Manage academic year / semester periods and their fee items.
             Only one period can be active at a time — the active period accepts student payment submissions.
           </p>
         </div>
         <button
           onClick={() => setShowNewPeriod(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white rounded-lg shrink-0"
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-lg shrink-0"
         >
           <Plus className="w-4 h-4" /> New Period
         </button>
@@ -184,10 +184,10 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
 
       {/* New Period Form */}
       {showNewPeriod && (
-        <div className="bg-white dark:bg-slate-900 border rounded-xl p-5 space-y-4 shadow-sm">
+        <div className="bg-[var(--surface)] border border-[var(--brand-100)] rounded-xl p-5 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-sm">New Collection Period</h2>
-            <button onClick={() => { setShowNewPeriod(false); setNewPeriodName('') }} className="text-slate-400 hover:text-slate-600">
+            <h2 className="font-semibold text-sm text-[var(--text-primary)]">New Collection Period</h2>
+            <button onClick={() => { setShowNewPeriod(false); setNewPeriodName('') }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -197,12 +197,12 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
               onChange={(e) => setNewPeriodName(e.target.value)}
               required
               placeholder="e.g. A.Y. 2027–2028 1st Semester"
-              className="flex-1 px-3 py-2 text-sm border rounded-lg bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-400"
+              className="flex-1 px-3 py-2 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface-alt)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
             />
             <button
               type="submit"
               disabled={isPending}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white rounded-lg disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-lg disabled:opacity-50"
             >
               {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Create
@@ -213,7 +213,7 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
 
       {/* Period List */}
       {periods.length === 0 ? (
-        <div className="bg-white dark:bg-slate-900 border rounded-xl p-12 text-center text-slate-500 text-sm">
+        <div className="bg-[var(--surface)] border border-[var(--brand-100)] rounded-xl p-12 text-center text-[var(--text-muted)] text-sm">
           No collection periods yet. Create one to get started.
         </div>
       ) : (
@@ -223,24 +223,24 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
             const form = getFeeForm(period.id)
 
             return (
-              <div key={period.id} className="bg-white dark:bg-slate-900 border rounded-xl overflow-hidden shadow-sm">
+              <div key={period.id} className="bg-[var(--surface)] border border-[var(--brand-100)] rounded-xl overflow-hidden shadow-sm">
                 {/* Period header row */}
                 <div className="flex items-center gap-3 p-4">
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : period.id)}
                     className="flex items-center gap-3 flex-1 min-w-0 text-left"
                   >
-                    {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />}
+                    {isExpanded ? <ChevronDown className="w-4 h-4 text-[var(--text-muted)] shrink-0" /> : <ChevronRight className="w-4 h-4 text-[var(--text-muted)] shrink-0" />}
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm truncate">{period.name}</span>
+                        <span className="font-semibold text-sm truncate text-[var(--text-primary)]">{period.name}</span>
                         {period.isActive && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                             <CircleDot className="w-2.5 h-2.5" /> Active
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5">
                         {period.feeItems.length} fee item{period.feeItems.length !== 1 ? 's' : ''} ·{' '}
                         {period._count.paymentClaims} payment claim{period._count.paymentClaims !== 1 ? 's' : ''}
                       </p>
@@ -271,21 +271,20 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
 
                 {/* Expanded: fee items */}
                 {isExpanded && (
-                  <div className="border-t px-4 pb-4 pt-3 space-y-3">
-                    {/* Fee item list */}
+                  <div className="border-t border-[var(--brand-100)] px-4 pb-4 pt-3 space-y-3">
                     {period.feeItems.length === 0 ? (
-                      <p className="text-xs text-slate-500 py-2">No fee items yet. Add one below.</p>
+                      <p className="text-xs text-[var(--text-muted)] py-2">No fee items yet. Add one below.</p>
                     ) : (
                       <div className="space-y-2">
                         {period.feeItems.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2.5">
+                          <div key={item.id} className="flex items-center justify-between bg-[var(--surface-alt)] rounded-lg px-3 py-2.5">
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <DollarSign className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <DollarSign className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
                               <div className="min-w-0">
-                                <p className="text-sm font-medium truncate">{item.name}</p>
+                                <p className="text-sm font-medium truncate text-[var(--text-primary)]">{item.name}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <span className="text-xs text-emerald-700 font-semibold">PHP {parseFloat(item.amount).toFixed(2)}</span>
-                                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${item.isRequired ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-500'}`}>
+                                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${item.isRequired ? 'bg-[var(--brand-100)] text-[var(--brand-600)]' : 'bg-[var(--surface-alt)] text-[var(--text-muted)]'}`}>
                                     {item.isRequired ? 'Required' : 'Optional'}
                                   </span>
                                   {item.requiresShirtSize && (
@@ -299,7 +298,7 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
                             <button
                               onClick={() => handleDeleteFeeItem(period.id, item.id)}
                               disabled={isPending}
-                              className="text-slate-400 hover:text-red-500 transition-colors p-1 disabled:opacity-40"
+                              className="text-[var(--text-muted)] hover:text-[var(--brand-500)] transition-colors p-1 disabled:opacity-40"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -312,29 +311,29 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
                     {!form.open ? (
                       <button
                         onClick={() => setFeeFormFor(period.id, { open: true })}
-                        className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-800 font-medium"
+                        className="inline-flex items-center gap-1.5 text-xs text-[var(--brand-500)] hover:text-[var(--brand-600)] font-medium"
                       >
                         <Plus className="w-3.5 h-3.5" /> Add Fee Item
                       </button>
                     ) : (
                       <form
                         onSubmit={(e) => handleAddFeeItem(period.id, e)}
-                        className="border rounded-lg p-3 space-y-3 bg-slate-50 dark:bg-slate-800"
+                        className="border border-[var(--brand-100)] rounded-lg p-3 space-y-3 bg-[var(--surface-alt)]"
                       >
-                        <p className="text-xs font-semibold text-slate-600">New Fee Item</p>
+                        <p className="text-xs font-semibold text-[var(--text-primary)]">New Fee Item</p>
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-1">
-                            <label className="text-xs text-slate-500">Name *</label>
+                            <label className="text-xs text-[var(--text-muted)]">Name *</label>
                             <input
                               value={form.name}
                               onChange={(e) => setFeeFormFor(period.id, { name: e.target.value })}
                               required
                               placeholder="e.g. Membership Fee"
-                              className="w-full px-2.5 py-1.5 text-sm border rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                              className="w-full px-2.5 py-1.5 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
                             />
                           </div>
                           <div className="space-y-1">
-                            <label className="text-xs text-slate-500">Amount (PHP) *</label>
+                            <label className="text-xs text-[var(--text-muted)]">Amount (PHP) *</label>
                             <input
                               type="number"
                               min="0"
@@ -343,17 +342,17 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
                               onChange={(e) => setFeeFormFor(period.id, { amount: e.target.value })}
                               required
                               placeholder="250.00"
-                              className="w-full px-2.5 py-1.5 text-sm border rounded-lg bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                              className="w-full px-2.5 py-1.5 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
                             />
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 text-xs">
+                        <div className="flex items-center gap-4 text-xs text-[var(--text-primary)]">
                           <label className="flex items-center gap-1.5 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={form.isRequired}
                               onChange={(e) => setFeeFormFor(period.id, { isRequired: e.target.checked })}
-                              className="rounded"
+                              className="rounded accent-[var(--brand-500)]"
                             />
                             Required
                           </label>
@@ -362,7 +361,7 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
                               type="checkbox"
                               checked={form.requiresShirtSize}
                               onChange={(e) => setFeeFormFor(period.id, { requiresShirtSize: e.target.checked })}
-                              className="rounded"
+                              className="rounded accent-[var(--brand-500)]"
                             />
                             Requires Shirt Size
                           </label>
@@ -371,7 +370,7 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
                           <button
                             type="submit"
                             disabled={isPending}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white rounded-lg disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-lg disabled:opacity-50"
                           >
                             {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                             Add
@@ -379,7 +378,7 @@ export default function CollectionPeriodsClient({ initialPeriods }: { initialPer
                           <button
                             type="button"
                             onClick={() => setFeeFormFor(period.id, { open: false })}
-                            className="px-3 py-1.5 text-xs border rounded-lg hover:bg-slate-100 font-medium"
+                            className="px-3 py-1.5 text-xs border border-[var(--brand-100)] rounded-lg hover:bg-[var(--brand-50)] font-medium"
                           >
                             Cancel
                           </button>

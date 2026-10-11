@@ -34,9 +34,9 @@ const NAV_ITEMS: NavItem[] = [
   },
   // --- below items are hidden from PENDING accounts ---
   {
-    href: '/admin/accounts',
-    label: 'Account Management',
-    icon: UserCog,
+    href: '/admin/attendance',
+    label: 'Attendance',
+    icon: ClipboardList,
     exact: false,
     hiddenFromPending: true,
   },
@@ -55,16 +55,16 @@ const NAV_ITEMS: NavItem[] = [
     hiddenFromPending: true,
   },
   {
-    href: '/admin/config',
-    label: 'Configuration',
-    icon: Settings,
+    href: '/admin/accounts',
+    label: 'Account Management',
+    icon: UserCog,
     exact: false,
     hiddenFromPending: true,
   },
   {
-    href: '/admin/attendance',
-    label: 'Attendance',
-    icon: ClipboardList,
+    href: '/admin/config',
+    label: 'Configuration',
+    icon: Settings,
     exact: false,
     hiddenFromPending: true,
   },
@@ -124,7 +124,11 @@ export default function AdminLayoutClient({
             {session?.user?.email ?? ''}
           </span>
           <button
-            onClick={() => signOut({ callbackUrl: '/' })}
+            onClick={() => {
+              if (confirm('Are you sure you want to logout?')) {
+                signOut({ callbackUrl: '/' })
+              }
+            }}
             className="text-xs flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--brand-500)] transition-colors border border-[var(--brand-100)] px-3 py-1.5 rounded-md"
           >
             <LogOut className="w-3.5 h-3.5" /> Logout

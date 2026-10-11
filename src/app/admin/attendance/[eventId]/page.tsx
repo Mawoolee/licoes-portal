@@ -3,15 +3,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, MapPin, Clock } from 'lucide-react'
 
-const COURSE_COLORS: Record<string, string> = {
-  'BSCE CEM': 'bg-[var(--brand-50)] border-[var(--brand-100)] text-[var(--brand-600)]',
-  'BSCE SE':  'bg-amber-50 border-amber-100 text-amber-700',
-  'BSEE':     'bg-yellow-50 border-yellow-100 text-yellow-700',
-  'BSIT':     'bg-indigo-50 border-indigo-100 text-indigo-700',
-  'BSCS':     'bg-blue-50 border-blue-100 text-blue-700',
-  'BLIS':     'bg-pink-50 border-pink-100 text-pink-700',
-}
-const DEFAULT_COLOR = 'bg-slate-50 border-slate-100 text-slate-700'
+const COURSE_COLORS: Record<string, string> = {}
+const DEFAULT_COLOR = 'bg-[#fdeee4] border-[#f5ccb0]'
 
 export default async function EventAttendancePage({
   params,
@@ -98,20 +91,20 @@ export default async function EventAttendancePage({
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {courses.map(({ course, count }) => {
-              const colorClass = COURSE_COLORS[course] ?? DEFAULT_COLOR
               return (
                 <Link
                   key={course}
                   href={`/admin/attendance/${eventId}/${encodeURIComponent(course)}`}
-                  className={`group rounded-2xl border ${colorClass} p-8 flex flex-col items-center justify-center gap-2 min-h-[130px] hover:scale-[1.02] transition-transform`}
+                  style={{ backgroundColor: '#fdeee4', borderColor: '#f5ccb0' }}
+                  className="group relative overflow-hidden rounded-2xl border-2 p-8 flex flex-col items-center justify-center gap-2 min-h-[160px] transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
                 >
-                  <h2 className="text-2xl font-extrabold tracking-tight text-center">
+                  <h2 className="text-2xl font-extrabold tracking-tight text-center text-[var(--brand-600)]">
                     {course}
                   </h2>
-                  <p className="text-sm font-semibold opacity-70">
+                  <p className="text-sm font-semibold text-[var(--text-muted)]">
                     {count.toLocaleString()} record{count !== 1 ? 's' : ''}
                   </p>
-                  <span className="text-xs opacity-30 group-hover:opacity-70 transition-opacity">
+                  <span className="absolute bottom-3 right-3 flex items-center gap-0.5 text-xs font-medium text-[var(--brand-300)] opacity-0 group-hover:opacity-100 transition-opacity">
                     View →
                   </span>
                 </Link>

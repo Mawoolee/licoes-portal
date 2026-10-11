@@ -89,6 +89,23 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ message: 'Roles updated.' })
     }
 
+    if (action === 'delete') {
+      await db.officer.delete({ where: { id: officerId } })
+
+      await db.auditLog.create({
+        data: {
+          officerId: adminId,
+          action: 'ACCOUNT_DELETED',
+          targetRecord: 'Officer',
+          recordId: officerId,
+          previousVal: JSON.stringify({ status: officer.status, email: officer.email }),
+          newVal: JSON.stringify({ deleted: true }),
+        },
+      })
+
+      return NextResponse.json({ message: 'Account deleted.' })
+    }
+
     return NextResponse.json({ message: 'Unknown action.' }, { status: 400 })
   } catch (err) {
     console.error('[admin/accounts] error:', err)

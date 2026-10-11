@@ -12,7 +12,7 @@ export default async function WelcomePage() {
     const status = (session.user as any).status
     const roles = (session.user as any).roles as string[]
 
-    if (status === 'PENDING') redirect('/pending')
+    if (status === 'PENDING') redirect('/admin')
     if (roles.includes('ADMIN')) redirect('/admin')
     if (roles.includes('TREASURER')) redirect('/treasurer/claims')
     if (roles.includes('ATTENDANCE_OFFICER')) redirect('/attendance')

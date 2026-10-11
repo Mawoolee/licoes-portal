@@ -2,7 +2,7 @@ import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
 export default withAuth(
-  function proxy(req) {
+  function middleware(req) {
     const token = req.nextauth.token
     const path = req.nextUrl.pathname
 
@@ -13,17 +13,20 @@ export default withAuth(
     const roles = (token.roles as string[]) || []
     const status = token.status as string | undefined
 
-    // PENDING users: only allow access to List of Students (/admin/roster)
+    // PENDING users: only allow dashboard and roster
     if (status === 'PENDING') {
-      if (!path.startsWith('/admin/roster') && !path.startsWith('/pending')) {
-        return NextResponse.redirect(new URL('/pending', req.url))
+      const allowed =
+        path === '/admin' ||
+        path.startsWith('/admin/roster') ||
+        path.startsWith('/pending')
+      if (!allowed) {
+        return NextResponse.redirect(new URL('/admin', req.url))
       }
       return NextResponse.next()
     }
 
     // ACTIVE users — role-based route guards
 
-    // /treasurer (TREASURER or ADMIN)
     if (
       path.startsWith('/treasurer') &&
       !roles.includes('TREASURER') &&
@@ -32,7 +35,6 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // /attendance (ATTENDANCE_OFFICER, TREASURER, or ADMIN)
     if (
       path.startsWith('/attendance') &&
       !roles.includes('ATTENDANCE_OFFICER') &&
@@ -42,12 +44,10 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // /admin (ADMIN only) — but /admin/roster is accessible to PENDING too (handled above)
     if (path.startsWith('/admin') && !roles.includes('ADMIN')) {
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // /finance (FINANCE_OFFICER or ADMIN)
     if (
       path.startsWith('/finance') &&
       !roles.includes('FINANCE_OFFICER') &&
@@ -56,7 +56,6 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // /reports/attendance (ADMIN or FINANCE_OFFICER)
     if (
       path === '/reports/attendance' &&
       !roles.includes('ADMIN') &&
@@ -65,7 +64,6 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // /reports/payments (ADMIN or TREASURER)
     if (
       path === '/reports/payments' &&
       !roles.includes('ADMIN') &&
@@ -74,7 +72,6 @@ export default withAuth(
       return NextResponse.redirect(new URL('/unauthorized', req.url))
     }
 
-    // /auditor (AUDITOR or ADMIN)
     if (
       path.startsWith('/auditor') &&
       !roles.includes('AUDITOR') &&
@@ -94,9 +91,9 @@ export default withAuth(
 
 export const config = {
   matcher: [
+    '/admin/:path*',
     '/treasurer/:path*',
     '/attendance/:path*',
-    '/admin/:path*',
     '/finance/:path*',
     '/reports/:path*',
     '/auditor/:path*',
