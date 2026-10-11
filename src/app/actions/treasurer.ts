@@ -127,7 +127,8 @@ async function executeApproval(
       })
     }
 
-    revalidatePath('/treasurer/claims')
+    revalidatePath('/admin/membership-fee/claims')
+    revalidatePath('/admin/membership-fee')
 
     return {
       success: true,

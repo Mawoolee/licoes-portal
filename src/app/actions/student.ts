@@ -33,6 +33,23 @@ export async function submitPaymentClaim(input: SubmitClaimInput) {
       return { success: false, error: 'No active collection period open for submissions.' }
     }
 
+    // Duplicate check — one non-rejected claim per email per collection period
+    const existing = await db.paymentClaim.findFirst({
+      where: {
+        collectionPeriodId: activePeriod.id,
+        dwclEmail: input.dwclEmail.toLowerCase().trim(),
+        status: { not: 'REJECTED' },
+      },
+    })
+
+    if (existing) {
+      return {
+        success: false,
+        error: 'A payment claim for this email has already been submitted for the current collection period.',
+        alreadySubmitted: true,
+      }
+    }
+
     const normalizedReference = input.paymentReference.toLowerCase().replace(/[^a-z0-9]/g, '')
 
     const studentProfile = await db.studentProfile.findUnique({
@@ -49,7 +66,7 @@ export async function submitPaymentClaim(input: SubmitClaimInput) {
         studentId: studentProfile ? studentProfile.id : null,
         submittedStudentNo: input.studentNumber,
         submittedFullName: input.fullName,
-        dwclEmail: input.dwclEmail,
+        dwclEmail: input.dwclEmail.toLowerCase().trim(),
         program: input.program,
         yearLevel: Number(input.yearLevel),
         shirtSize: input.shirtSize,

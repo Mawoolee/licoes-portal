@@ -16,6 +16,11 @@ export default async function MembershipFeeClaimsPage() {
     claimItems: c.claimItems.map((ci) => ({
       ...ci,
       amount: ci.amount.toString(),
+      feeItem: {
+        ...ci.feeItem,
+        amount: ci.feeItem.amount.toString(),
+        createdAt: ci.feeItem.createdAt.toISOString(),
+      },
     })),
   }))
 

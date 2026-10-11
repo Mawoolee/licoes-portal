@@ -3,8 +3,9 @@
 import { signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import Image from 'next/image'
 import {
-  LogOut, ShieldCheck, FileSpreadsheet, LayoutDashboard,
+  LogOut, FileSpreadsheet, LayoutDashboard,
   CalendarDays, Wallet, Settings, ClipboardList, UserCog,
 } from 'lucide-react'
 
@@ -104,7 +105,7 @@ export default function AdminLayoutClient({
       {/* Top Header */}
       <header className="border-b border-[var(--brand-100)] bg-white px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-3">
-          <ShieldCheck className="w-6 h-6 text-[var(--brand-500)]" />
+          <Image src="/licoes_logo.png" alt="LICOES Logo" width={32} height={32} className="object-contain" />
           <span className="font-bold text-lg tracking-tight text-[var(--text-primary)]">
             LICOES Portal
           </span>
