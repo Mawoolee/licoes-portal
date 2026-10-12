@@ -21,10 +21,13 @@ export async function createEventAction(formData: FormData) {
     return { success: false, message: 'All fields are required.' }
   }
 
-  const tIS = new Date(timeInStart)
-  const tIE = new Date(timeInEnd)
-  const tOS = new Date(timeOutStart)
-  const tOE = new Date(timeOutEnd)
+  // datetime-local values have no timezone info — append PH offset so they
+  // are always interpreted as Asia/Manila (UTC+8) regardless of server timezone.
+  const toPhTime = (s: string) => new Date(s.includes('+') || s.endsWith('Z') ? s : `${s}+08:00`)
+  const tIS = toPhTime(timeInStart)
+  const tIE = toPhTime(timeInEnd)
+  const tOS = toPhTime(timeOutStart)
+  const tOE = toPhTime(timeOutEnd)
 
   if ([tIS, tIE, tOS, tOE].some((d) => isNaN(d.getTime()))) {
     return { success: false, message: 'Invalid date/time values.' }
