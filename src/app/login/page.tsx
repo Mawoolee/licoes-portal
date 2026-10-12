@@ -86,8 +86,25 @@ function LoginContent() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-[var(--bg-cream)] p-4">
-      <div className="w-full max-w-3xl flex rounded-2xl overflow-hidden shadow-2xl border border-[var(--brand-100)]">
-        <div className="flex-1 bg-white px-10 py-12 flex flex-col justify-center space-y-6">
+      <div className="w-full max-w-3xl flex flex-col md:flex-row rounded-2xl overflow-hidden shadow-2xl border border-[var(--brand-100)]">
+
+        {/* Form panel — full width on mobile, flex-1 on desktop */}
+        <div className="flex-1 bg-white px-8 py-10 md:px-10 md:py-12 flex flex-col justify-center space-y-6">
+
+          {/* Mobile-only logo + brand strip — SAME AS SIGNUP */}
+          <div className="flex flex-col items-center gap-2 md:hidden pb-2">
+            <div className="w-24 h-24 flex items-center justify-center">
+              <Image
+                src="/licoes_logo.png"
+                alt="LICOES Logo"
+                width={96}
+                height={96}
+                className="object-contain"
+              />
+            </div>
+            <p className="text-xs text-[var(--text-muted)] font-medium">LICOES Portal</p>
+          </div>
+
           <div className="space-y-1">
             <h1 className="text-3xl font-extrabold text-[var(--text-primary)]">Login</h1>
             <p className="text-sm text-[var(--text-muted)]">Use your DWCL school account</p>
@@ -124,7 +141,9 @@ function LoginContent() {
             <Link href="/signup" className="text-[var(--brand-500)] font-semibold hover:underline">Sign Up</Link>
           </p>
         </div>
-        <div className="w-72 bg-[var(--brand-500)] px-8 py-12 flex flex-col items-center justify-center text-white text-center space-y-5 shrink-0">
+
+        {/* Red panel — hidden on mobile, visible on md+ */}
+        <div className="hidden md:flex w-72 bg-[var(--brand-500)] px-8 py-12 flex-col items-center justify-center text-white text-center space-y-5 shrink-0">
           <Image src="/licoes_logo.png" alt="LICOES Logo" width={100} height={100} className="opacity-90 drop-shadow-lg" />
           <div className="space-y-2">
             <h2 className="text-2xl font-extrabold tracking-tight">WELCOME BACK!</h2>
@@ -134,6 +153,7 @@ function LoginContent() {
             Use your<br /><span className="font-semibold text-white/80">@dwc-legazpi.edu</span><br />Google account
           </p>
         </div>
+
       </div>
     </main>
   )

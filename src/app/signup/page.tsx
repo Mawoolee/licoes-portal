@@ -63,14 +63,30 @@ export default function SignUpPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!email.toLowerCase().endsWith(DWCL_DOMAIN)) { setError(`Please use your DWCL school email (e.g. juan.delacruz${DWCL_DOMAIN})`); return }
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
-    if (password !== confirm) { setError('Passwords do not match.'); return }
+    if (!email.toLowerCase().endsWith(DWCL_DOMAIN)) {
+      setError(`Please use your DWCL school email (e.g. juan.delacruz${DWCL_DOMAIN})`)
+      return
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+    if (password !== confirm) {
+      setError('Passwords do not match.')
+      return
+    }
     setLoading(true)
-    const res = await fetch('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), email: email.toLowerCase().trim(), password }) })
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), email: email.toLowerCase().trim(), password }),
+    })
     const data = await res.json()
     setLoading(false)
-    if (!res.ok) { setError(data.message ?? 'An error occurred.'); return }
+    if (!res.ok) {
+      setError(data.message ?? 'An error occurred.')
+      return
+    }
     setSuccess(true)
     setTimeout(() => router.push('/pending'), 2000)
   }
@@ -80,10 +96,12 @@ export default function SignUpPage() {
       <main className="min-h-screen flex items-center justify-center bg-[var(--bg-cream)] p-4">
         <div className="w-full max-w-sm text-center space-y-4 rounded-2xl border border-[var(--brand-100)] bg-white p-10 shadow-xl">
           <div className="w-14 h-14 rounded-full bg-green-50 border border-green-200 flex items-center justify-center mx-auto">
-            <span className="text-green-500 text-2xl font-bold">?</span>
+            <span className="text-green-500 text-2xl font-bold">✓</span>
           </div>
           <h2 className="text-xl font-bold text-[var(--text-primary)]">Account Created!</h2>
-          <p className="text-sm text-[var(--text-muted)]">Waiting for admin approval. Redirecting you now...</p>
+          <p className="text-sm text-[var(--text-muted)]">
+            Waiting for admin approval. Redirecting you now...
+          </p>
         </div>
       </main>
     )
@@ -91,9 +109,11 @@ export default function SignUpPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-[var(--bg-cream)] p-4">
-      <div className="w-full max-w-3xl flex rounded-2xl overflow-hidden shadow-2xl border border-[var(--brand-100)]">
-        <div className="w-72 bg-[var(--brand-500)] px-8 py-12 flex flex-col items-center justify-center text-white text-center space-y-5 shrink-0">
-          <Image src="/licoes_logo.png" alt="LICOES Logo" width={100} height={100} className="opacity-90 drop-shadow-lg" />
+      <div className="w-full max-w-3xl flex flex-col md:flex-row rounded-2xl overflow-hidden shadow-2xl border border-[var(--brand-100)]">
+
+        {/* Red panel — hidden on mobile, visible on md+ */}
+        <div className="hidden md:flex w-72 bg-[var(--brand-500)] px-8 py-12 flex-col items-center justify-center text-white text-center space-y-5 shrink-0">
+          <Image src="/licoes_logo.png" alt="LICOES Logo" width={120} height={120} className="opacity-90 drop-shadow-lg" />
           <div className="space-y-2">
             <h2 className="text-2xl font-extrabold tracking-tight">HELLO!</h2>
             <p className="text-sm text-white/80">New here? Create your account</p>
@@ -102,49 +122,91 @@ export default function SignUpPage() {
             Use your<br /><span className="font-semibold text-white/80">@dwc-legazpi.edu</span><br />school email
           </p>
         </div>
-        <div className="flex-1 bg-white px-10 py-10 flex flex-col justify-center space-y-5">
+
+        {/* Form panel */}
+        <div className="flex-1 bg-white px-8 py-10 md:px-10 md:py-10 flex flex-col justify-center space-y-5">
+
+          {/* Mobile-only logo + brand strip — SAME AS LOGIN */}
+          <div className="flex flex-col items-center gap-2 md:hidden pb-2">
+            <div className="w-24 h-24 flex items-center justify-center">
+              <Image
+                src="/licoes_logo.png"
+                alt="LICOES Logo"
+                width={96}
+                height={96}
+                className="object-contain"
+              />
+            </div>
+            <p className="text-xs text-[var(--text-muted)] font-medium">LICOES Portal</p>
+          </div>
+
           <div className="space-y-1">
             <h1 className="text-3xl font-extrabold text-[var(--text-primary)]">Sign Up</h1>
-            <p className="text-sm text-[var(--text-muted)]">Create an account using your DWCL school email</p>
+            <p className="text-sm text-[var(--text-muted)]">
+              Create an account using your DWCL school email
+            </p>
           </div>
+
           {error && (
             <div className="flex items-start gap-2 rounded-lg border border-[var(--brand-100)] bg-[var(--brand-50)] p-3 text-sm text-[var(--brand-600)]">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />{error}
             </div>
           )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
-              <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required
-                className="w-full pl-10 pr-4 py-3 border-b-2 border-[var(--brand-100)] bg-transparent text-sm focus:outline-none focus:border-[var(--brand-500)] transition-colors placeholder:text-[var(--text-muted)]" />
+              <input
+                type="text"
+                placeholder="Full Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full pl-10 pr-4 py-3 border-b-2 border-[var(--brand-100)] bg-transparent text-sm focus:outline-none focus:border-[var(--brand-500)] transition-colors placeholder:text-[var(--text-muted)]"
+              />
             </div>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
-              <input type="email" placeholder={`Email (${DWCL_DOMAIN})`} value={email} onChange={(e) => setEmail(e.target.value)} required
-                className="w-full pl-10 pr-4 py-3 border-b-2 border-[var(--brand-100)] bg-transparent text-sm focus:outline-none focus:border-[var(--brand-500)] transition-colors placeholder:text-[var(--text-muted)]" />
+              <input
+                type="email"
+                placeholder={`Email (${DWCL_DOMAIN})`}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full pl-10 pr-4 py-3 border-b-2 border-[var(--brand-100)] bg-transparent text-sm focus:outline-none focus:border-[var(--brand-500)] transition-colors placeholder:text-[var(--text-muted)]"
+              />
             </div>
             <PasswordInput value={password} onChange={setPassword} placeholder="Password (min. 8 characters)" />
             <PasswordInput value={confirm} onChange={setConfirm} placeholder="Confirm Password" />
-            <button type="submit" disabled={loading}
-              className="w-full py-3 rounded-xl bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white font-semibold text-sm transition-colors disabled:opacity-60">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white font-semibold text-sm transition-colors disabled:opacity-60"
+            >
               {loading ? 'Creating account...' : 'Sign Up'}
             </button>
           </form>
+
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-[var(--brand-100)]" />
             <span className="text-xs text-[var(--text-muted)]">or</span>
             <div className="flex-1 h-px bg-[var(--brand-100)]" />
           </div>
-          <button onClick={() => signIn('google', { callbackUrl: '/' })}
-            className="w-full flex items-center justify-center gap-3 rounded-xl border border-[var(--brand-100)] bg-white px-5 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--brand-50)] transition-colors shadow-sm">
+
+          <button
+            onClick={() => signIn('google', { callbackUrl: '/' })}
+            className="w-full flex items-center justify-center gap-3 rounded-xl border border-[var(--brand-100)] bg-white px-5 py-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--brand-50)] transition-colors shadow-sm"
+          >
             {GOOGLE_SVG}
             Sign up with Google
           </button>
+
           <p className="text-sm text-[var(--text-muted)] text-center">
             Already have an account?{' '}
             <Link href="/login" className="text-[var(--brand-500)] font-semibold hover:underline">Login</Link>
           </p>
         </div>
+
       </div>
     </main>
   )
