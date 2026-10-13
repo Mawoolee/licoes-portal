@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import {
   LogOut, FileSpreadsheet, LayoutDashboard,
-  CalendarDays, Wallet, Settings, ClipboardList, UserCog,
+  CalendarDays, Wallet, Settings, ClipboardList, UserCog, ShieldCheck,
 } from 'lucide-react'
 
 type NavItem = {
@@ -41,13 +41,6 @@ const NAV_ITEMS: NavItem[] = [
     hiddenFromPending: true,
   },
   {
-    href: '/admin/membership-fee',
-    label: 'Membership Fee',
-    icon: Wallet,
-    exact: false,
-    hiddenFromPending: true,
-  },
-  {
     href: '/admin/events',
     label: 'Events',
     icon: CalendarDays,
@@ -55,9 +48,23 @@ const NAV_ITEMS: NavItem[] = [
     hiddenFromPending: true,
   },
   {
+    href: '/admin/membership-fee',
+    label: 'Membership Fee',
+    icon: Wallet,
+    exact: false,
+    hiddenFromPending: true,
+  },
+  {
     href: '/admin/accounts',
     label: 'Account Management',
     icon: UserCog,
+    exact: false,
+    hiddenFromPending: true,
+  },
+  {
+    href: '/admin/audit-log',
+    label: 'Audit Log',
+    icon: ShieldCheck,
     exact: false,
     hiddenFromPending: true,
   },

@@ -49,6 +49,58 @@ export async function createEventAction(formData: FormData) {
   }
 }
 
+export async function updateEventAction(eventId: string, formData: FormData) {
+  const name         = (formData.get('name') as string | null)?.trim()
+  const location     = (formData.get('location') as string | null)?.trim()
+  const timeInStart  = formData.get('timeInStart') as string | null
+  const timeInEnd    = formData.get('timeInEnd') as string | null
+  const timeOutStart = formData.get('timeOutStart') as string | null
+  const timeOutEnd   = formData.get('timeOutEnd') as string | null
+
+  if (!name || !location || !timeInStart || !timeInEnd || !timeOutStart || !timeOutEnd) {
+    return { success: false, message: 'All fields are required.' }
+  }
+
+  const toPhTime = (s: string) => new Date(s.includes('+') || s.endsWith('Z') ? s : `${s}+08:00`)
+  const tIS = toPhTime(timeInStart)
+  const tIE = toPhTime(timeInEnd)
+  const tOS = toPhTime(timeOutStart)
+  const tOE = toPhTime(timeOutEnd)
+
+  if ([tIS, tIE, tOS, tOE].some((d) => isNaN(d.getTime()))) {
+    return { success: false, message: 'Invalid date/time values.' }
+  }
+  if (tIE <= tIS) return { success: false, message: 'Time-In end must be after Time-In start.' }
+  if (tOS <= tIE) return { success: false, message: 'Time-Out start must be after Time-In end.' }
+  if (tOE <= tOS) return { success: false, message: 'Time-Out end must be after Time-Out start.' }
+
+  try {
+    await db.event.update({
+      where: { id: eventId },
+      data: { name, location, timeInStart: tIS, timeInEnd: tIE, timeOutStart: tOS, timeOutEnd: tOE },
+    })
+    revalidatePath('/admin/events')
+    revalidatePath('/attendance')
+    return { success: true, message: `Event "${name}" updated.` }
+  } catch (err) {
+    console.error('updateEventAction:', err)
+    return { success: false, message: 'Failed to update event.' }
+  }
+}
+
+
+export async function deleteEventAction(eventId: string) {
+  try {
+    await db.event.delete({ where: { id: eventId } })
+    revalidatePath('/admin/events')
+    revalidatePath('/admin/attendance/list')
+    return { success: true }
+  } catch (err) {
+    console.error('deleteEventAction:', err)
+    return { success: false, message: 'Failed to delete event.' }
+  }
+}
+
 export async function closeEventAction(eventId: string) {
   try {
     await db.event.update({

@@ -1,38 +1,59 @@
-import { db } from '@/lib/db'
+'use client'
+
+import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, CalendarDays, MapPin, CheckCircle2, Clock } from 'lucide-react'
+import { ArrowLeft, CalendarDays, MapPin, Clock, Trash2 } from 'lucide-react'
+import { getAllEventsAction, deleteEventAction } from '@/app/actions/attendance-actions'
 
-export const dynamic = 'force-dynamic'
+type EventItem = {
+  id: string
+  name: string
+  location: string
+  timeInStart: Date | null
+  timeOutEnd: Date | null
+  isClosed: boolean
+  createdAt: Date
+  _count: { attendanceRecords: number }
+}
 
-export default async function AttendanceListPage() {
-  const events = await db.event.findMany({
-    orderBy: { timeInStart: 'desc' },
-    include: {
-      _count: { select: { attendanceRecords: true } },
-    },
-  })
+const STATUS_STYLES = {
+  live:     'bg-green-50 text-green-600 border-green-200',
+  upcoming: 'bg-blue-50 text-blue-600 border-blue-200',
+  ended:    'bg-[var(--brand-50)] text-[var(--brand-600)] border-[var(--brand-100)]',
+  closed:   'bg-slate-50 text-slate-500 border-slate-200',
+}
 
+const STATUS_LABELS = {
+  live:     '● Live',
+  upcoming: 'Upcoming',
+  ended:    'Ended',
+  closed:   'Closed',
+}
+
+function getEventStatus(event: EventItem) {
   const now = new Date()
+  if (event.isClosed) return 'closed'
+  if (event.timeOutEnd && new Date(event.timeOutEnd) < now) return 'ended'
+  if (event.timeInStart && new Date(event.timeInStart) <= now) return 'live'
+  return 'upcoming'
+}
 
-  function getEventStatus(event: (typeof events)[0]) {
-    if (event.isClosed) return 'closed'
-    if (event.timeOutEnd && new Date(event.timeOutEnd) < now) return 'ended'
-    if (event.timeInStart && new Date(event.timeInStart) <= now) return 'live'
-    return 'upcoming'
-  }
+export default function AttendanceListPage() {
+  const [events, setEvents] = useState<EventItem[]>([])
+  const [isPending, startTransition] = useTransition()
 
-  const STATUS_STYLES = {
-    live: 'bg-green-50 text-green-600 border-green-200',
-    upcoming: 'bg-blue-50 text-blue-600 border-blue-200',
-    ended: 'bg-[var(--brand-50)] text-[var(--brand-600)] border-[var(--brand-100)]',
-    closed: 'bg-slate-50 text-slate-500 border-slate-200',
-  }
+  useEffect(() => {
+    getAllEventsAction().then((data) => setEvents(data as EventItem[]))
+  }, [])
 
-  const STATUS_LABELS = {
-    live: '● Live',
-    upcoming: 'Upcoming',
-    ended: 'Ended',
-    closed: 'Closed',
+  function handleDelete(eventId: string, eventName: string) {
+    if (!confirm(`Are you sure you want to delete "${eventName}"? This will permanently remove all attendance records for this event.`)) return
+    startTransition(async () => {
+      const result = await deleteEventAction(eventId)
+      if (result.success) {
+        setEvents((prev) => prev.filter((e) => e.id !== eventId))
+      }
+    })
   }
 
   return (
@@ -67,17 +88,20 @@ export default async function AttendanceListPage() {
           {events.map((event) => {
             const status = getEventStatus(event)
             return (
-              <Link
+              <div
                 key={event.id}
-                href={`/admin/attendance/${event.id}`}
-                className="flex items-center justify-between gap-4 rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] px-5 py-4 hover:shadow-md hover:border-[var(--brand-200)] transition-all group"
+                className="flex items-center justify-between gap-4 rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] px-5 py-4 hover:shadow-md hover:border-[var(--brand-200)] transition-all"
               >
-                <div className="flex items-center gap-4">
+                {/* Clickable area → event detail */}
+                <Link
+                  href={`/admin/attendance/${event.id}`}
+                  className="flex items-center gap-4 flex-1 min-w-0 group"
+                >
                   <div className="w-10 h-10 rounded-lg bg-[var(--brand-50)] flex items-center justify-center shrink-0">
                     <CalendarDays className="w-5 h-5 text-[var(--brand-500)]" />
                   </div>
-                  <div>
-                    <p className="font-semibold text-[var(--text-primary)]">{event.name}</p>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[var(--text-primary)] truncate">{event.name}</p>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
                         <MapPin className="w-3 h-3" /> {event.location}
@@ -85,14 +109,15 @@ export default async function AttendanceListPage() {
                       <span className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
                         <Clock className="w-3 h-3" />
                         {new Date(event.timeInStart ?? event.createdAt).toLocaleDateString('en-PH', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
+                          month: 'short', day: 'numeric', year: 'numeric',
+                          timeZone: 'Asia/Manila',
                         })}
                       </span>
                     </div>
                   </div>
-                </div>
+                </Link>
+
+                {/* Right side: count + status + arrow + delete */}
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
                     <p className="text-sm font-bold text-[var(--text-primary)]">
@@ -100,16 +125,24 @@ export default async function AttendanceListPage() {
                     </p>
                     <p className="text-[10px] text-[var(--text-muted)]">records</p>
                   </div>
-                  <span
-                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${STATUS_STYLES[status]}`}
-                  >
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${STATUS_STYLES[status]}`}>
                     {STATUS_LABELS[status]}
                   </span>
-                  <span className="text-[var(--text-muted)] group-hover:text-[var(--brand-500)] transition-colors text-sm">
+                  <Link
+                    href={`/admin/attendance/${event.id}`}
+                    className="text-[var(--text-muted)] hover:text-[var(--brand-500)] transition-colors text-sm"
+                  >
                     →
-                  </span>
+                  </Link>
+                  <button
+                    onClick={() => handleDelete(event.id, event.name)}
+                    disabled={isPending}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>

@@ -3,9 +3,9 @@
 import { useState, useTransition } from 'react'
 import {
   CalendarDays, MapPin, Clock, Users, Plus, Lock,
-  CheckCircle2, AlertCircle, Loader2, X, LogIn, LogOut,
+  CheckCircle2, AlertCircle, Loader2, X, LogIn, LogOut, Trash2, Pencil,
 } from 'lucide-react'
-import { createEventAction, closeEventAction } from '@/app/actions/attendance-actions'
+import { createEventAction, closeEventAction, deleteEventAction, updateEventAction } from '@/app/actions/attendance-actions'
 import Link from 'next/link'
 
 type EventRow = {
@@ -27,12 +27,13 @@ function fmtDateTime(d: Date | null | undefined) {
   return new Date(d).toLocaleString('en-PH', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit', hour12: true,
+    timeZone: 'Asia/Manila',
   })
 }
 
 function fmtTime(d: Date | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true })
+  return new Date(d).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' })
 }
 
 export default function EventsClient({ initialEvents }: { initialEvents: EventRow[] }) {
@@ -41,12 +42,82 @@ export default function EventsClient({ initialEvents }: { initialEvents: EventRo
   const [formMsg, setFormMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  // ── Create form state ──────────────────────────────────────────────────────
   const [name, setName]               = useState('')
   const [location, setLocation]       = useState('')
   const [timeInStart, setTimeInStart] = useState('')
   const [timeInEnd, setTimeInEnd]     = useState('')
   const [timeOutStart, setTimeOutStart] = useState('')
   const [timeOutEnd, setTimeOutEnd]     = useState('')
+
+  // ── Edit modal state ───────────────────────────────────────────────────────
+  const [editEvent, setEditEvent] = useState<EventRow | null>(null)
+  const [editName, setEditName]               = useState('')
+  const [editLocation, setEditLocation]       = useState('')
+  const [editTimeInStart, setEditTimeInStart] = useState('')
+  const [editTimeInEnd, setEditTimeInEnd]     = useState('')
+  const [editTimeOutStart, setEditTimeOutStart] = useState('')
+  const [editTimeOutEnd, setEditTimeOutEnd]     = useState('')
+  const [editMsg, setEditMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  function toDatetimeLocal(d: Date | null) {
+    if (!d) return ''
+    // Convert UTC date to PH local string for datetime-local input
+    const ph = new Date(new Date(d).toLocaleString('en-US', { timeZone: 'Asia/Manila' }))
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${ph.getFullYear()}-${pad(ph.getMonth() + 1)}-${pad(ph.getDate())}T${pad(ph.getHours())}:${pad(ph.getMinutes())}`
+  }
+
+  function openEditModal(ev: EventRow) {
+    setEditEvent(ev)
+    setEditName(ev.name)
+    setEditLocation(ev.location)
+    setEditTimeInStart(toDatetimeLocal(ev.timeInStart))
+    setEditTimeInEnd(toDatetimeLocal(ev.timeInEnd))
+    setEditTimeOutStart(toDatetimeLocal(ev.timeOutStart))
+    setEditTimeOutEnd(toDatetimeLocal(ev.timeOutEnd))
+    setEditMsg(null)
+  }
+
+  function closeEditModal() {
+    setEditEvent(null)
+    setEditMsg(null)
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editEvent) return
+    const fd = new FormData()
+    fd.append('name', editName)
+    fd.append('location', editLocation)
+    fd.append('timeInStart', editTimeInStart)
+    fd.append('timeInEnd', editTimeInEnd)
+    fd.append('timeOutStart', editTimeOutStart)
+    fd.append('timeOutEnd', editTimeOutEnd)
+
+    startTransition(async () => {
+      const result = await updateEventAction(editEvent.id, fd)
+      if (result.success) {
+        setEditMsg({ type: 'success', text: result.message })
+        setEvents((prev) => prev.map((ev) =>
+          ev.id === editEvent.id
+            ? {
+                ...ev,
+                name: editName,
+                location: editLocation,
+                timeInStart: new Date(`${editTimeInStart}+08:00`),
+                timeInEnd:   new Date(`${editTimeInEnd}+08:00`),
+                timeOutStart: new Date(`${editTimeOutStart}+08:00`),
+                timeOutEnd:   new Date(`${editTimeOutEnd}+08:00`),
+              }
+            : ev
+        ))
+        setTimeout(() => closeEditModal(), 1200)
+      } else {
+        setEditMsg({ type: 'error', text: result.message })
+      }
+    })
+  }
 
   function resetForm() {
     setName(''); setLocation('')
@@ -99,6 +170,16 @@ export default function EventsClient({ initialEvents }: { initialEvents: EventRo
         setEvents((prev) =>
           prev.map((ev) => ev.id === eventId ? { ...ev, isClosed: true, closedAt: new Date() } : ev)
         )
+      }
+    })
+  }
+
+  async function handleDelete(eventId: string, eventName: string) {
+    if (!confirm(`Are you sure you want to delete "${eventName}"? This will permanently remove all attendance records for this event.`)) return
+    startTransition(async () => {
+      const result = await deleteEventAction(eventId)
+      if (result.success) {
+        setEvents((prev) => prev.filter((ev) => ev.id !== eventId))
       }
     })
   }
@@ -252,6 +333,104 @@ export default function EventsClient({ initialEvents }: { initialEvents: EventRo
         </div>
       )}
 
+      {/* Edit Event Modal */}
+      {editEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={closeEditModal}
+        >
+          <div
+            className="relative w-full max-w-2xl bg-[var(--surface)] rounded-2xl border border-[var(--brand-100)] shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-8 py-5 border-b border-[var(--brand-100)]">
+              <h2 className="font-bold text-xl text-[var(--text-primary)]">Edit Event</h2>
+              <button onClick={closeEditModal} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEdit} className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-[var(--text-muted)]">Event Name *</label>
+                  <input
+                    value={editName} onChange={(e) => setEditName(e.target.value)} required
+                    className="w-full px-4 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface-alt)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-[var(--text-muted)]">Location *</label>
+                  <input
+                    value={editLocation} onChange={(e) => setEditLocation(e.target.value)} required
+                    className="w-full px-4 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface-alt)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-green-200 bg-green-50 p-5 space-y-4">
+                <p className="text-sm font-bold text-green-700 flex items-center gap-1.5 uppercase tracking-wider">
+                  <LogIn className="w-4 h-4" /> Time-In Window
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-green-700">Start *</label>
+                    <input type="datetime-local" value={editTimeInStart} onChange={(e) => setEditTimeInStart(e.target.value)} required
+                      className="w-full px-4 py-2.5 text-sm border border-green-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-green-400" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-green-700">Cut-off *</label>
+                    <input type="datetime-local" value={editTimeInEnd} onChange={(e) => setEditTimeInEnd(e.target.value)} required
+                      className="w-full px-4 py-2.5 text-sm border border-green-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-green-400" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-[var(--brand-100)] bg-[var(--brand-50)] p-5 space-y-4">
+                <p className="text-sm font-bold text-[var(--brand-600)] flex items-center gap-1.5 uppercase tracking-wider">
+                  <LogOut className="w-4 h-4" /> Time-Out Window
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-[var(--brand-600)]">Start *</label>
+                    <input type="datetime-local" value={editTimeOutStart} onChange={(e) => setEditTimeOutStart(e.target.value)} required
+                      className="w-full px-4 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-[var(--brand-600)]">Cut-off *</label>
+                    <input type="datetime-local" value={editTimeOutEnd} onChange={(e) => setEditTimeOutEnd(e.target.value)} required
+                      className="w-full px-4 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)]" />
+                  </div>
+                </div>
+              </div>
+
+              {editMsg && (
+                <div className={`p-3 rounded-lg flex items-center gap-2 text-sm font-medium ${
+                  editMsg.type === 'success'
+                    ? 'bg-green-50 border border-green-200 text-green-700'
+                    : 'bg-red-50 border border-red-200 text-red-700'
+                }`}>
+                  {editMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                  {editMsg.text}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button type="submit" disabled={isPending}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-lg disabled:opacity-50 transition-colors">
+                  {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+                  Save Changes
+                </button>
+                <button type="button" onClick={closeEditModal}
+                  className="px-6 py-2.5 text-sm border border-[var(--brand-100)] rounded-lg hover:bg-[var(--brand-50)] font-medium text-[var(--text-muted)] transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Open Events */}
       <section className="space-y-3">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
@@ -263,7 +442,7 @@ export default function EventsClient({ initialEvents }: { initialEvents: EventRo
           </div>
         ) : (
           openEvents.map((ev) => (
-            <EventCard key={ev.id} event={ev} onClose={() => handleClose(ev.id)} isPending={isPending} fmtDateTime={fmtDateTime} fmtTime={fmtTime} />
+            <EventCard key={ev.id} event={ev} onClose={() => handleClose(ev.id)} onDelete={() => handleDelete(ev.id, ev.name)} onEdit={() => openEditModal(ev)} isPending={isPending} fmtDateTime={fmtDateTime} fmtTime={fmtTime} />
           ))
         )}
       </section>
@@ -275,7 +454,7 @@ export default function EventsClient({ initialEvents }: { initialEvents: EventRo
             Closed Events ({closedEvents.length})
           </h2>
           {closedEvents.map((ev) => (
-            <EventCard key={ev.id} event={ev} onClose={() => {}} isPending={false} fmtDateTime={fmtDateTime} fmtTime={fmtTime} closed />
+            <EventCard key={ev.id} event={ev} onClose={() => {}} onDelete={() => handleDelete(ev.id, ev.name)} onEdit={() => {}} isPending={false} fmtDateTime={fmtDateTime} fmtTime={fmtTime} closed />
           ))}
         </section>
       )}
@@ -284,10 +463,12 @@ export default function EventsClient({ initialEvents }: { initialEvents: EventRo
 }
 
 function EventCard({
-  event, onClose, isPending, fmtDateTime, fmtTime, closed = false,
+  event, onClose, onDelete, onEdit, isPending, fmtDateTime, fmtTime, closed = false,
 }: {
   event: EventRow
   onClose: () => void
+  onDelete: () => void
+  onEdit: () => void
   isPending: boolean
   fmtDateTime: (d: Date | null | undefined) => string
   fmtTime: (d: Date | null | undefined) => string
@@ -333,6 +514,12 @@ function EventCard({
               <CalendarDays className="w-3.5 h-3.5" /> Open Scanner
             </Link>
             <button
+              onClick={onEdit} disabled={isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--brand-600)] border border-[var(--brand-200)] hover:bg-[var(--brand-50)] rounded-lg disabled:opacity-50 transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Edit
+            </button>
+            <button
               onClick={onClose} disabled={isPending}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-200 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-colors"
             >
@@ -348,6 +535,12 @@ function EventCard({
             <Users className="w-3.5 h-3.5" /> View Report
           </Link>
         )}
+        <button
+          onClick={onDelete} disabled={isPending}
+          className="inline-flex items-center justify-center w-8 h-8 text-red-500 border border-red-200 bg-white hover:bg-red-50 rounded-lg disabled:opacity-50 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
     </div>
   )

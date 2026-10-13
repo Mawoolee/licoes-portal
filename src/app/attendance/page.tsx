@@ -46,12 +46,13 @@ function fmtTime(iso: string | undefined) {
   if (!iso) return '—'
   return new Date(iso).toLocaleTimeString('en-PH', {
     hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+    timeZone: 'Asia/Manila',
   })
 }
 
 function fmtWindow(d: Date | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true })
+  return new Date(d).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' })
 }
 
 const WINDOW_LABELS: Record<WindowStatus, string> = {

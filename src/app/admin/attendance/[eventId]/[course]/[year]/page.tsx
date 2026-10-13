@@ -17,6 +17,7 @@ function fmt(date: Date | null | undefined): string {
     minute: '2-digit',
     second: '2-digit',
     hour12: true,
+    timeZone: 'Asia/Manila',
   })
 }
 
