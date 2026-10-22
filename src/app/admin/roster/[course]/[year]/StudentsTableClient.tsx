@@ -76,7 +76,7 @@ export default function StudentsTableClient({ students: initialStudents }: { stu
                       {s.fullName}
                     </span>
                     {s.isOfficer && (
-                      <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-300 whitespace-nowrap">
+                      <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-300 whitespace-nowrap">
                         LICOES Officer
                       </span>
                     )}

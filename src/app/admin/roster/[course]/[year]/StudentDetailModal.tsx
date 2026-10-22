@@ -110,7 +110,7 @@ export default function StudentDetailModal({
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-bold text-white leading-tight">{student.fullName}</h2>
                   {isOfficer && (
-                    <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 whitespace-nowrap">
+                    <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 whitespace-nowrap">
                       LICOES Officer
                     </span>
                   )}
@@ -245,7 +245,7 @@ export default function StudentDetailModal({
                   type="button"
                   onClick={() => setIsOfficer((v) => !v)}
                   className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
-                    isOfficer ? 'bg-blue-600' : 'bg-slate-300'
+                    isOfficer ? 'bg-orange-500' : 'bg-slate-300'
                   }`}
                 >
                   <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
