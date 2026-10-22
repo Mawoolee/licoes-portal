@@ -71,7 +71,7 @@ export default async function CourseYearStudentsPage({
           }
         : false,
       attendanceRecords: {
-        include: { event: true },
+        include: { event: true, sessions: { orderBy: { timeIn: 'asc' }, take: 1 } },
         orderBy: { createdAt: 'desc' },
       },
     },
@@ -100,6 +100,7 @@ export default async function CourseYearStudentsPage({
             year: 'numeric',
           }),
           status: r.status as 'PRESENT' | 'ABSENT',
+          isLate: r.sessions?.[0]?.isLateTimeIn ?? false,
         })) ?? [],
     }
   })

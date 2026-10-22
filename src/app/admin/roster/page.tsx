@@ -10,7 +10,12 @@ export default async function RosterPage() {
     orderBy: { course: 'asc' },
   })
 
+  // Separate known courses from unknown
+  const KNOWN_COURSES = ['BSCE CEM', 'BSCE SE', 'BSEE', 'BSIT', 'BSCS', 'BLIS']
   const rows = grouped.map((r) => ({ course: r.course, count: r._count.id }))
+  const knownRows = rows.filter((r) => KNOWN_COURSES.includes(r.course))
+  const unknownCount = rows.filter((r) => !KNOWN_COURSES.includes(r.course)).reduce((s, r) => s + r.count, 0)
+  const displayRows = unknownCount > 0 ? [...knownRows, { course: 'Unknown', count: unknownCount }] : knownRows
   const totalStudents = rows.reduce((s, r) => s + r.count, 0)
 
   const YEAR_LABELS: Record<string, string> = {
@@ -26,7 +31,7 @@ export default async function RosterPage() {
   return (
     <div className="space-y-6">
       <RosterClient
-        rows={rows}
+        rows={displayRows}
         totalStudents={totalStudents}
         allStudents={allStudents.map((s) => ({
           id: s.id,

@@ -107,12 +107,50 @@ export async function closeEventAction(eventId: string) {
       where: { id: eventId },
       data: { isClosed: true, closedAt: new Date() },
     })
+
+    // Mark all students in the alpha list as ABSENT if they have no AttendanceRecord for this event
+    const event = await db.event.findUnique({ where: { id: eventId } })
+    if (event) {
+      // Find all StudentProfiles (canonical profiles used for attendance)
+      const allProfiles = await db.studentProfile.findMany({ select: { id: true } })
+      const existingRecords = await db.attendanceRecord.findMany({
+        where: { eventId },
+        select: { studentId: true },
+      })
+      const presentIds = new Set(existingRecords.map((r) => r.studentId))
+      const absentProfiles = allProfiles.filter((p) => !presentIds.has(p.id))
+
+      if (absentProfiles.length > 0) {
+        await db.attendanceRecord.createMany({
+          data: absentProfiles.map((p) => ({
+            eventId,
+            studentId: p.id,
+            status: 'ABSENT' as const,
+          })),
+          skipDuplicates: true,
+        })
+      }
+    }
+
     revalidatePath('/admin/events')
     revalidatePath('/attendance')
     return { success: true }
   } catch (err) {
     console.error('closeEventAction:', err)
     return { success: false, message: 'Failed to close event.' }
+  }
+}
+
+export async function invalidateAttendanceAction(sessionId: string) {
+  try {
+    await db.attendanceSession.delete({ where: { id: sessionId } })
+    // Check if the parent record has any sessions left; if not, remove the record too
+    const session = await db.attendanceSession.findFirst({ where: { id: sessionId } }).catch(() => null)
+    revalidatePath('/admin/attendance')
+    return { success: true }
+  } catch (err) {
+    console.error('invalidateAttendanceAction:', err)
+    return { success: false, message: 'Failed to invalidate attendance.' }
   }
 }
 

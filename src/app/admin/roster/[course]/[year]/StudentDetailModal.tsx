@@ -9,6 +9,7 @@ type AttendanceEntry = {
   eventName: string
   eventDate: string
   status: 'PRESENT' | 'ABSENT'
+  isLate?: boolean
 }
 
 type StudentDetail = {
@@ -284,11 +285,17 @@ export default function StudentDetailModal({
                         <span className={`text-[10px] ${a.status === 'PRESENT' ? 'text-green-500' : 'text-red-400'}`}>
                           {a.eventDate}
                         </span>
-                        <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded-full ${
-                          a.status === 'PRESENT' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                        }`}>
-                          {a.status}
-                        </span>
+                        {a.status === 'PRESENT' && a.isLate ? (
+                          <span className="font-bold text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                            LATE
+                          </span>
+                        ) : (
+                          <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded-full ${
+                            a.status === 'PRESENT' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {a.status}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
