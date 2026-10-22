@@ -66,6 +66,35 @@ export default async function EventAttendancePage({
     .sort((a, b) => b._timeInMs - a._timeInMs)
     .map(({ _timeInMs: _t, ...rest }) => rest)
 
+  // Course card grid — server-rendered so <Link> tags stay on the server
+  const courseCardGrid =
+    courses.length === 0 ? (
+      <div className="rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] p-12 text-center text-sm text-[var(--text-muted)]">
+        No attendance records yet for this event.
+      </div>
+    ) : (
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {courses.map(({ course, count }) => (
+          <Link
+            key={course}
+            href={`/admin/attendance/${eventId}/${encodeURIComponent(course)}`}
+            style={{ backgroundColor: '#fdeee4', borderColor: '#f5ccb0' }}
+            className="group relative overflow-hidden rounded-2xl border-2 p-8 flex flex-col items-center justify-center gap-2 min-h-[160px] transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+          >
+            <h2 className="text-2xl font-extrabold tracking-tight text-center text-[var(--brand-600)]">
+              {course}
+            </h2>
+            <p className="text-sm font-semibold text-[var(--text-muted)]">
+              {count.toLocaleString()} record{count !== 1 ? 's' : ''}
+            </p>
+            <span className="absolute bottom-3 right-3 flex items-center gap-0.5 text-xs font-medium text-[var(--brand-300)] opacity-0 group-hover:opacity-100 transition-opacity">
+              View →
+            </span>
+          </Link>
+        ))}
+      </div>
+    )
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -107,46 +136,10 @@ export default async function EventAttendancePage({
         </div>
       </div>
 
-      {/* Course cards */}
-      <div>
-        {/* Row: "Select a program" label + search input on the right */}
-        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <p className="text-sm font-semibold text-[var(--text-muted)]">
-            Select a program to view attendance
-          </p>
-        </div>
-        {courses.length === 0 ? (
-          <div className="rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] p-12 text-center text-sm text-[var(--text-muted)]">
-            No attendance records yet for this event.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {courses.map(({ course, count }) => (
-              <Link
-                key={course}
-                href={`/admin/attendance/${eventId}/${encodeURIComponent(course)}`}
-                style={{ backgroundColor: '#fdeee4', borderColor: '#f5ccb0' }}
-                className="group relative overflow-hidden rounded-2xl border-2 p-8 flex flex-col items-center justify-center gap-2 min-h-[160px] transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
-              >
-                <h2 className="text-2xl font-extrabold tracking-tight text-center text-[var(--brand-600)]">
-                  {course}
-                </h2>
-                <p className="text-sm font-semibold text-[var(--text-muted)]">
-                  {count.toLocaleString()} record{count !== 1 ? 's' : ''}
-                </p>
-                <span className="absolute bottom-3 right-3 flex items-center gap-0.5 text-xs font-medium text-[var(--brand-300)] opacity-0 group-hover:opacity-100 transition-opacity">
-                  View →
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Session Log — client component with search */}
-      {sessionLog.length > 0 && (
-        <SessionLogClient sessions={sessionLog} totalScans={sessionLog.length} />
-      )}
+      {/* Course cards + search + session log — all in one client component so
+          the search input (client state) can sit beside "Select a program"
+          while still filtering the session log below */}
+      <SessionLogClient sessions={sessionLog} courseCards={courseCardGrid} />
     </div>
   )
 }
