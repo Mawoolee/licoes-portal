@@ -5,31 +5,26 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Upload, Users, ChevronRight, UserPlus, X,
-  FileSpreadsheet, CheckCircle2, AlertCircle, Loader2,
+  FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, Search,
 } from 'lucide-react'
 import { uploadAlphaListAction } from '@/app/actions/alphalist-actions'
 import { addStudentAction } from '@/app/actions/alphalist-actions'
 
-const COURSE_COLORS: Record<string, { bg: string; border: string }> = {
-  'BSCE CEM': { bg: 'bg-[#fdeee4]', border: 'border-[#f5ccb0]' },
-  'BSCE SE':  { bg: 'bg-[#fdeee4]', border: 'border-[#f5ccb0]' },
-  'BSEE':     { bg: 'bg-[#fdeee4]', border: 'border-[#f5ccb0]' },
-  'BSIT':     { bg: 'bg-[#fdeee4]', border: 'border-[#f5ccb0]' },
-  'BSCS':     { bg: 'bg-[#fdeee4]', border: 'border-[#f5ccb0]' },
-  'BLIS':     { bg: 'bg-[#fdeee4]', border: 'border-[#f5ccb0]' },
-}
-const DEFAULT_COLOR = { bg: 'bg-[#fdeee4]', border: 'border-[#f5ccb0]' }
-
 const COURSES = ['BSCE CEM', 'BSCE SE', 'BSEE', 'BSIT', 'BSCS', 'BLIS']
 
 type CourseRow = { course: string; count: number }
+type SearchResult = { id: string; fullName: string; course: string; yearLevel: string; yearLabel: string }
 
 export default function RosterClient({
   rows,
   totalStudents,
+  query,
+  searchResults,
 }: {
   rows: CourseRow[]
   totalStudents: number
+  query: string
+  searchResults: SearchResult[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -81,7 +76,7 @@ export default function RosterClient({
   return (
     <>
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">List of Students</h1>
           <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -90,7 +85,34 @@ export default function RosterClient({
               : 'No students imported yet. Upload the SOECS Excel file to populate this roster.'}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* Search bar */}
+          <form method="GET" action="/admin/roster" className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)]" />
+              <input
+                name="q"
+                defaultValue={query}
+                placeholder="Search name or ID…"
+                className="pl-8 pr-3 py-2 text-xs border border-[var(--brand-100)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)] w-48"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-3 py-2 text-xs bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-lg font-medium transition-colors"
+            >
+              Search
+            </button>
+            {query && (
+              <Link
+                href="/admin/roster"
+                className="px-3 py-2 text-xs border border-[var(--brand-100)] rounded-lg hover:bg-[var(--brand-50)] font-medium text-[var(--text-muted)] transition-colors"
+              >
+                Clear
+              </Link>
+            )}
+          </form>
+
           <button
             onClick={() => { setShowAdd(true); setAddStatus(null) }}
             className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold border border-[var(--brand-300)] text-[var(--brand-600)] hover:bg-[var(--brand-50)] rounded-lg transition-colors"
@@ -106,8 +128,52 @@ export default function RosterClient({
         </div>
       </div>
 
-      {/* Course cards */}
-      {rows.length === 0 ? (
+      {/* Search Results */}
+      {query && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-widest">
+            {searchResults.length === 0
+              ? `No results for "${query}"`
+              : `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''} for "${query}"`}
+          </p>
+          {searchResults.length > 0 && (
+            <div className="rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] overflow-hidden shadow-sm">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[var(--surface-alt)] border-b border-[var(--brand-100)]">
+                  <tr className="text-xs uppercase text-[var(--text-muted)] font-semibold tracking-wider">
+                    <th className="px-4 py-3 w-10">#</th>
+                    <th className="px-4 py-3">Student ID</th>
+                    <th className="px-4 py-3">Full Name</th>
+                    <th className="px-4 py-3">Course</th>
+                    <th className="px-4 py-3">Year</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--brand-50)]">
+                  {searchResults.map((s, idx) => (
+                    <tr key={s.id} className="hover:bg-[var(--brand-50)] transition-colors">
+                      <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{idx + 1}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">{s.id}</td>
+                      <td className="px-4 py-3 font-medium text-[var(--brand-500)]">
+                        <Link
+                          href={`/admin/roster/${encodeURIComponent(s.course)}/${encodeURIComponent(s.yearLevel)}`}
+                          className="hover:underline"
+                        >
+                          {s.fullName}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{s.course}</td>
+                      <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{s.yearLabel}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Course cards — only show when not searching */}
+      {!query && (rows.length === 0 ? (
         <div className="border-2 border-dashed border-[var(--brand-100)] rounded-2xl p-16 text-center space-y-4">
           <Users className="w-12 h-12 text-[var(--brand-200)] mx-auto" />
           <div>
@@ -124,7 +190,6 @@ export default function RosterClient({
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {rows.map(({ course, count }) => {
-            const color = COURSE_COLORS[course] ?? DEFAULT_COLOR
             const slug = encodeURIComponent(course)
             return (
               <Link
@@ -144,7 +209,7 @@ export default function RosterClient({
             )
           })}
         </div>
-      )}
+      ))}
 
       {/* ── Upload Excel Modal ──────────────────────────────────────────── */}
       {showUpload && (
