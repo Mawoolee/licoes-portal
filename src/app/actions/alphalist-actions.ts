@@ -251,3 +251,62 @@ export async function updateStudentTagsAction(
     return { success: false, message: 'Failed to update student tags.' }
   }
 }
+
+export async function getStudentDetailAction(studentId: string) {
+  const student = await db.student.findUnique({ where: { id: studentId } })
+  if (!student) return null
+
+  const activePeriod = await db.collectionPeriod.findFirst({
+    where: { isActive: true },
+    include: {
+      feeItems: {
+        where: { name: { contains: 'Membership', mode: 'insensitive' } },
+        take: 1,
+      },
+    },
+  })
+  const membershipFeeItemId = activePeriod?.feeItems[0]?.id ?? null
+
+  const profile = await db.studentProfile.findUnique({
+    where: { studentNumber: studentId },
+    include: {
+      paymentClaims: membershipFeeItemId
+        ? {
+            where: {
+              collectionPeriodId: activePeriod!.id,
+              status: 'APPROVED',
+              claimItems: { some: { feeItemId: membershipFeeItemId } },
+            },
+            take: 1,
+          }
+        : false,
+      attendanceRecords: {
+        include: { event: true },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+  })
+
+  const YEAR_LABELS: Record<string, string> = {
+    '1': '1st Year', '2': '2nd Year', '3': '3rd Year', '4': '4th Year',
+  }
+
+  return {
+    id: student.id,
+    fullName: student.fullName,
+    course: student.course,
+    yearLevel: student.yearLevel,
+    section: student.section,
+    isOfficer: student.isOfficer,
+    notes: student.notes ?? '',
+    hasPaidMembership: (profile?.paymentClaims?.length ?? 0) > 0,
+    attendance: profile?.attendanceRecords.map((r) => ({
+      eventId: r.eventId,
+      eventName: r.event.name,
+      eventDate: new Date(r.event.timeInStart ?? r.event.createdAt).toLocaleDateString('en-PH', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      }),
+      status: r.status as 'PRESENT' | 'ABSENT',
+    })) ?? [],
+  }
+}

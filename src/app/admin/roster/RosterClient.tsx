@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useTransition, useEffect, useRef } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Upload, Users, ChevronRight, UserPlus, X,
   FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, Search,
 } from 'lucide-react'
-import { uploadAlphaListAction } from '@/app/actions/alphalist-actions'
-import { addStudentAction } from '@/app/actions/alphalist-actions'
+import { uploadAlphaListAction, addStudentAction, getStudentDetailAction } from '@/app/actions/alphalist-actions'
+import StudentDetailModal from './[course]/[year]/StudentDetailModal'
 
 const COURSES = ['BSCE CEM', 'BSCE SE', 'BSEE', 'BSIT', 'BSCS', 'BLIS']
 
@@ -31,6 +31,18 @@ export default function RosterClient({
   const [searchInput, setSearchInput] = useState('')
   const [query, setQuery] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Modal from search result click
+  type StudentDetail = Awaited<ReturnType<typeof getStudentDetailAction>>
+  const [modalStudent, setModalStudent] = useState<NonNullable<StudentDetail> | null>(null)
+  const [loadingStudent, setLoadingStudent] = useState<string | null>(null)
+
+  async function handleResultClick(studentId: string) {
+    setLoadingStudent(studentId)
+    const detail = await getStudentDetailAction(studentId)
+    setLoadingStudent(null)
+    if (detail) setModalStudent(detail)
+  }
 
   function handleSearchChange(value: string) {
     setSearchInput(value)
@@ -160,16 +172,20 @@ export default function RosterClient({
                 </thead>
                 <tbody className="divide-y divide-[var(--brand-50)]">
                   {searchResults.map((s, idx) => (
-                    <tr key={s.id} className="hover:bg-[var(--brand-50)] transition-colors">
+                    <tr
+                      key={s.id}
+                      className="hover:bg-[var(--brand-50)] transition-colors cursor-pointer"
+                      onClick={() => handleResultClick(s.id)}
+                    >
                       <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{idx + 1}</td>
                       <td className="px-4 py-3 font-mono text-xs text-[var(--text-muted)]">{s.id}</td>
                       <td className="px-4 py-3 font-medium text-[var(--brand-500)]">
-                        <Link
-                          href={`/admin/roster/${encodeURIComponent(s.course)}/${encodeURIComponent(s.yearLevel)}`}
-                          className="hover:underline"
-                        >
+                        <span className="flex items-center gap-2">
                           {s.fullName}
-                        </Link>
+                          {loadingStudent === s.id && (
+                            <Loader2 className="w-3 h-3 animate-spin text-[var(--text-muted)]" />
+                          )}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{s.course}</td>
                       <td className="px-4 py-3 text-xs text-[var(--text-muted)]">{s.yearLabel}</td>
@@ -336,6 +352,14 @@ export default function RosterClient({
             </form>
           </div>
         </div>
+      )}
+      {/* Student detail modal from search */}
+      {modalStudent && (
+        <StudentDetailModal
+          student={modalStudent}
+          onClose={() => setModalStudent(null)}
+          onUpdate={(updated) => setModalStudent(updated)}
+        />
       )}
     </>
   )
