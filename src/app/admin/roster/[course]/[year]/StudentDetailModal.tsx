@@ -110,12 +110,12 @@ export default function StudentDetailModal({
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-bold text-white leading-tight">{student.fullName}</h2>
                   {isOfficer && (
-                    <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 whitespace-nowrap">
+                    <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-300 whitespace-nowrap">
                       LICOES Officer
                     </span>
                   )}
                   {notes && (
-                    <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 whitespace-nowrap">
+                    <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-300 whitespace-nowrap">
                       {notes}
                     </span>
                   )}
@@ -239,7 +239,7 @@ export default function StudentDetailModal({
               <label className="flex items-center justify-between gap-4 cursor-pointer">
                 <div>
                   <p className="text-sm font-semibold text-[var(--text-primary)]">LICOES Officer</p>
-                  <p className="text-xs text-[var(--text-muted)]">Shows a blue badge on the roster</p>
+                  <p className="text-xs text-[var(--text-muted)]">Shows an orange badge on the roster</p>
                 </div>
                 <button
                   type="button"
