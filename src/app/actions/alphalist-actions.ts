@@ -310,3 +310,42 @@ export async function getStudentDetailAction(studentId: string) {
     })) ?? [],
   }
 }
+
+export async function editStudentAction(
+  originalId: string,
+  data: { id: string; fullName: string; course: string; yearLevel: string }
+) {
+  const newId = data.id.trim().padStart(8, '0')
+  const fullName = data.fullName.trim()
+  const course = data.course.trim()
+  const yearLevel = data.yearLevel.trim()
+
+  if (!newId || !fullName || !course || !yearLevel) {
+    return { success: false, message: 'All fields are required.' }
+  }
+
+  try {
+    if (newId !== originalId) {
+      // ID is changing — create new record then delete old one (PK can't be updated directly)
+      await db.student.create({
+        data: {
+          id: newId,
+          fullName,
+          course,
+          yearLevel,
+          section: `${course} ${yearLevel}`,
+        },
+      })
+      await db.student.delete({ where: { id: originalId } })
+    } else {
+      await db.student.update({
+        where: { id: originalId },
+        data: { fullName, course, yearLevel, section: `${course} ${yearLevel}` },
+      })
+    }
+    return { success: true, newId }
+  } catch (err) {
+    console.error('editStudentAction:', err)
+    return { success: false, message: 'Failed to update student.' }
+  }
+}
