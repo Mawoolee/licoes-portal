@@ -87,6 +87,8 @@ export default async function CourseYearStudentsPage({
       course: s.course,
       yearLevel: s.yearLevel,
       section: s.section,
+      isOfficer: s.isOfficer,
+      notes: s.notes ?? '',
       hasPaidMembership: (profile?.paymentClaims?.length ?? 0) > 0,
       attendance:
         profile?.attendanceRecords.map((r) => ({

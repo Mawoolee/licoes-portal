@@ -235,3 +235,19 @@ export async function addStudentAction(input: {
     return { success: false, message: 'Failed to add student. Please try again.' }
   }
 }
+
+export async function updateStudentTagsAction(
+  studentId: string,
+  data: { isOfficer: boolean; notes: string }
+) {
+  try {
+    await db.student.update({
+      where: { id: studentId },
+      data: { isOfficer: data.isOfficer, notes: data.notes.trim() || null },
+    })
+    return { success: true }
+  } catch (err) {
+    console.error('updateStudentTagsAction:', err)
+    return { success: false, message: 'Failed to update student tags.' }
+  }
+}
