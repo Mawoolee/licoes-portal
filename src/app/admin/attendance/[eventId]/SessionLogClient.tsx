@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
-import { Search, LogIn, LogOut } from 'lucide-react'
+import { useState } from 'react'
+import { Search, LogIn, LogOut, ChevronRight } from 'lucide-react'
 
 type SessionEntry = {
   sessionId: string
@@ -14,18 +14,28 @@ type SessionEntry = {
   isLateTimeIn: boolean
 }
 
+type CourseCard = {
+  course: string
+  count: number
+  href: string
+}
+
 /**
- * Wraps the "Select a program" section + session log.
- * The search input lives on the same row as "Select a program to view attendance",
- * aligned to the right — and filters the session log below.
+ * Renders the "Select a program" header row (with search input), the program
+ * card grid, and the session log — all in one client component so the search
+ * state can sit beside the label and filter the log below.
+ *
+ * Receiving raw data (not JSX) avoids the React key-prop warning that occurs
+ * when pre-built JSX elements are passed across the server→client boundary.
  */
 export default function SessionLogClient({
   sessions,
-  courseCards,
+  courses,
+  eventId,
 }: {
   sessions: SessionEntry[]
-  /** The program card grid rendered by the server; passed as children so Links stay server-rendered */
-  courseCards: ReactNode
+  courses: CourseCard[]
+  eventId: string
 }) {
   const [query, setQuery] = useState('')
 
@@ -44,26 +54,51 @@ export default function SessionLogClient({
     <div className="space-y-6">
       {/* ── Course cards section ── */}
       <div>
-        {/* Header row: label left, search right */}
+        {/* Header row: label left, search right — search aligns with card grid edge */}
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <p className="text-sm font-semibold text-[var(--text-muted)]">
             Select a program to view attendance
           </p>
           {/* Global search — filters the session log */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)] pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search name, ID, or program…"
-              className="pl-8 pr-3 py-1.5 text-xs border border-[var(--brand-100)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)] w-56"
+              className="pl-9 pr-3 py-2 text-sm border border-[var(--brand-100)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)] w-72"
             />
           </div>
         </div>
 
-        {/* Program cards — passed in as server-rendered children */}
-        {courseCards}
+        {/* Program cards */}
+        {courses.length === 0 ? (
+          <div className="rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] p-12 text-center text-sm text-[var(--text-muted)]">
+            No attendance records yet for this event.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {courses.map(({ course, count, href }) => (
+              <a
+                key={course}
+                href={href}
+                style={{ backgroundColor: '#fdeee4', borderColor: '#f5ccb0' }}
+                className="group relative overflow-hidden rounded-2xl border-2 p-8 flex flex-col items-center justify-center gap-2 min-h-[160px] transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+              >
+                <h2 className="text-2xl font-extrabold tracking-tight text-center text-[var(--brand-600)]">
+                  {course}
+                </h2>
+                <p className="text-sm font-semibold text-[var(--text-muted)]">
+                  {count.toLocaleString()} record{count !== 1 ? 's' : ''}
+                </p>
+                <span className="absolute bottom-3 right-3 flex items-center gap-0.5 text-xs font-medium text-[var(--brand-300)] opacity-0 group-hover:opacity-100 transition-opacity">
+                  View <ChevronRight className="w-3 h-3" />
+                </span>
+              </a>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Session Log ── */}
