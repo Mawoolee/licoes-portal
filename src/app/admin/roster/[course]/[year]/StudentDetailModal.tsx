@@ -75,8 +75,6 @@ export default function StudentDetailModal({
     return () => window.removeEventListener('keydown', handleKey)
   }, [onClose, showTags])
 
-  const isDirty = isOfficer !== student.isOfficer || notes !== student.notes
-
   function handleSave() {
     startTransition(async () => {
       const result = await updateStudentTagsAction(student.id, { isOfficer, notes })
