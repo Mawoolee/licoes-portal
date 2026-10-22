@@ -42,17 +42,27 @@ export default function StudentDetailModal({
   const [saved, setSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
   const tagsRef = useRef<HTMLDivElement>(null)
-  // Track the last student ID we initialised for — only reset when a different student opens
   const initialisedForId = useRef(student.id)
+  // Snapshot values when the tags popup opens — dirty check compares against these
+  const snapshot = useRef({ isOfficer: student.isOfficer, notes: student.notes })
 
   useEffect(() => {
     if (initialisedForId.current === student.id) return
     initialisedForId.current = student.id
+    snapshot.current = { isOfficer: student.isOfficer, notes: student.notes }
     setIsOfficer(student.isOfficer)
     setNotes(student.notes)
     setSaved(false)
     setShowTags(false)
   }, [student.id])
+
+  function openTags() {
+    snapshot.current = { isOfficer, notes }
+    setSaved(false)
+    setShowTags(true)
+  }
+
+  const isDirty = isOfficer !== snapshot.current.isOfficer || notes !== snapshot.current.notes
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -71,9 +81,12 @@ export default function StudentDetailModal({
     startTransition(async () => {
       const result = await updateStudentTagsAction(student.id, { isOfficer, notes })
       if (result.success) {
+        snapshot.current = { isOfficer, notes } // update snapshot so isDirty becomes false
         setSaved(true)
         onUpdate({ ...student, isOfficer, notes })
-        setTimeout(() => setSaved(false), 2000)
+        setTimeout(() => {
+          setSaved(false)
+        }, 2500)
       }
     })
   }
@@ -115,7 +128,7 @@ export default function StudentDetailModal({
             {/* Actions: ⋯ + X */}
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
               <button
-                onClick={() => setShowTags(true)}
+                onClick={openTags}
                 className="text-white/70 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
                 title="Tags & Notes"
               >
@@ -267,13 +280,13 @@ export default function StudentDetailModal({
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between pt-1">
-                {saved && !isDirty ? (
-                  <p className="text-xs text-green-600 font-medium flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Saved
-                  </p>
-                ) : <span />}
-                <div className="flex gap-2 ml-auto">
+              {saved ? (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-green-50 border border-green-200 text-green-700 text-xs font-semibold">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  Tags &amp; notes saved successfully!
+                </div>
+              ) : (
+                <div className="flex gap-2 justify-end pt-1">
                   <button
                     onClick={() => setShowTags(false)}
                     className="px-4 py-2 text-xs border border-[var(--brand-100)] rounded-lg hover:bg-[var(--brand-50)] font-medium text-[var(--text-muted)] transition-colors"
@@ -290,7 +303,7 @@ export default function StudentDetailModal({
                       : <><Save className="w-3.5 h-3.5" /> Save</>}
                   </button>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
