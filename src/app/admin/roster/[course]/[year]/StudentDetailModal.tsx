@@ -9,7 +9,7 @@ type AttendanceEntry = {
   eventName: string
   eventDate: string
   status: 'PRESENT' | 'ABSENT'
-  isLate?: boolean
+  isLate: boolean
 }
 
 type StudentDetail = {
