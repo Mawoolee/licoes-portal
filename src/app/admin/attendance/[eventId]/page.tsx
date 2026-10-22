@@ -1,7 +1,8 @@
 import { db } from '@/lib/db'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, MapPin, Clock, LogIn, LogOut } from 'lucide-react'
+import { ArrowLeft, MapPin, Clock } from 'lucide-react'
+import SessionLogClient from './SessionLogClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +48,7 @@ export default async function EventAttendancePage({
 
   const totalPresent = event.attendanceRecords.filter((r) => r.status === 'PRESENT').length
 
-  // Build flat session log sorted by most recent timeIn
+  // Build flat session log sorted by most recent timeIn; pre-format times for the client
   const sessionLog = event.attendanceRecords
     .flatMap((record) =>
       record.sessions.map((session) => ({
@@ -55,13 +56,15 @@ export default async function EventAttendancePage({
         studentName: record.student.fullName,
         studentNumber: record.student.studentNumber,
         program: record.student.program,
-        yearLevel: record.student.yearLevel,
-        timeIn: session.timeIn,
-        timeOut: session.timeOut,
+        yearLevel: String(record.student.yearLevel),
+        _timeInMs: new Date(session.timeIn).getTime(),
+        timeIn: fmtTime(session.timeIn),
+        timeOut: fmtTime(session.timeOut),
         isLateTimeIn: session.isLateTimeIn,
       }))
     )
-    .sort((a, b) => new Date(b.timeIn).getTime() - new Date(a.timeIn).getTime())
+    .sort((a, b) => b._timeInMs - a._timeInMs)
+    .map(({ _timeInMs: _t, ...rest }) => rest)
 
   return (
     <div className="space-y-6">
@@ -106,9 +109,12 @@ export default async function EventAttendancePage({
 
       {/* Course cards */}
       <div>
-        <p className="text-sm font-semibold text-[var(--text-muted)] mb-3">
-          Select a program to view attendance
-        </p>
+        {/* Row: "Select a program" label + search input on the right */}
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <p className="text-sm font-semibold text-[var(--text-muted)]">
+            Select a program to view attendance
+          </p>
+        </div>
         {courses.length === 0 ? (
           <div className="rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] p-12 text-center text-sm text-[var(--text-muted)]">
             No attendance records yet for this event.
@@ -137,74 +143,9 @@ export default async function EventAttendancePage({
         )}
       </div>
 
-      {/* Session Log */}
+      {/* Session Log — client component with search */}
       {sessionLog.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-widest">
-              Session Log
-            </p>
-            <span className="text-xs text-[var(--text-muted)]">
-              {sessionLog.length} scan{sessionLog.length !== 1 ? 's' : ''} — most recent first
-            </span>
-          </div>
-
-          <div className="rounded-xl border border-[var(--brand-100)] bg-[var(--surface)] overflow-hidden shadow-sm">
-            <div className="overflow-y-auto max-h-[375px]">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-[var(--surface-alt)] border-b border-[var(--brand-100)] sticky top-0 z-10">
-                <tr className="text-xs uppercase text-[var(--text-muted)] font-semibold tracking-wider">
-                  <th className="px-4 py-3 w-8">#</th>
-                  <th className="px-4 py-3">Student</th>
-                  <th className="px-4 py-3">Program</th>
-                  <th className="px-4 py-3">
-                    <span className="flex items-center gap-1 text-green-600">
-                      <LogIn className="w-3 h-3" /> Time In
-                    </span>
-                  </th>
-                  <th className="px-4 py-3">
-                    <span className="flex items-center gap-1 text-blue-600">
-                      <LogOut className="w-3 h-3" /> Time Out
-                    </span>
-                  </th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--brand-50)]">
-                {sessionLog.map((entry, idx) => (
-                  <tr key={entry.sessionId} className="hover:bg-[var(--brand-50)/40] transition-colors">
-                    <td className="px-4 py-2.5 text-xs text-[var(--text-muted)]">{idx + 1}</td>
-                    <td className="px-4 py-2.5">
-                      <p className="font-medium text-[var(--text-primary)] text-sm">{entry.studentName}</p>
-                      <p className="text-xs text-[var(--text-muted)] font-mono">{entry.studentNumber}</p>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-[var(--text-muted)]">
-                      {entry.program} · Yr {entry.yearLevel}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs font-mono text-green-700">
-                      {fmtTime(entry.timeIn)}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs font-mono text-blue-700">
-                      {fmtTime(entry.timeOut)}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {entry.isLateTimeIn ? (
-                        <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                          Late
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-                          On Time
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </div>
-        </div>
+        <SessionLogClient sessions={sessionLog} totalScans={sessionLog.length} />
       )}
     </div>
   )
