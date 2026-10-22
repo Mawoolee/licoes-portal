@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -13,21 +13,38 @@ import { addStudentAction } from '@/app/actions/alphalist-actions'
 const COURSES = ['BSCE CEM', 'BSCE SE', 'BSEE', 'BSIT', 'BSCS', 'BLIS']
 
 type CourseRow = { course: string; count: number }
-type SearchResult = { id: string; fullName: string; course: string; yearLevel: string; yearLabel: string }
+type StudentItem = { id: string; fullName: string; course: string; yearLevel: string; yearLabel: string }
 
 export default function RosterClient({
   rows,
   totalStudents,
-  query,
-  searchResults,
+  allStudents,
 }: {
   rows: CourseRow[]
   totalStudents: number
-  query: string
-  searchResults: SearchResult[]
+  allStudents: StudentItem[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+
+  // Live search
+  const [searchInput, setSearchInput] = useState('')
+  const [query, setQuery] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleSearchChange(value: string) {
+    setSearchInput(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setQuery(value.trim()), 250)
+  }
+
+  const searchResults = query
+    ? allStudents.filter(
+        (s) =>
+          s.fullName.toLowerCase().includes(query.toLowerCase()) ||
+          s.id.includes(query)
+      ).slice(0, 50)
+    : []
 
   // Upload Excel modal
   const [showUpload, setShowUpload] = useState(false)
@@ -86,32 +103,25 @@ export default function RosterClient({
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          {/* Search bar */}
-          <form method="GET" action="/admin/roster" className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)]" />
-              <input
-                name="q"
-                defaultValue={query}
-                placeholder="Search name or ID…"
-                className="pl-8 pr-3 py-2 text-xs border border-[var(--brand-100)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)] w-48"
-              />
-            </div>
-            <button
-              type="submit"
-              className="px-3 py-2 text-xs bg-[var(--brand-500)] hover:bg-[var(--brand-600)] text-white rounded-lg font-medium transition-colors"
-            >
-              Search
-            </button>
-            {query && (
-              <Link
-                href="/admin/roster"
-                className="px-3 py-2 text-xs border border-[var(--brand-100)] rounded-lg hover:bg-[var(--brand-50)] font-medium text-[var(--text-muted)] transition-colors"
+          {/* Search bar — live as you type */}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)]" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search name or ID…"
+              className="pl-8 pr-8 py-2 text-xs border border-[var(--brand-100)] rounded-lg bg-[var(--surface)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-300)] w-52"
+            />
+            {searchInput && (
+              <button
+                onClick={() => { setSearchInput(''); setQuery('') }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               >
-                Clear
-              </Link>
+                <X className="w-3.5 h-3.5" />
+              </button>
             )}
-          </form>
+          </div>
 
           <button
             onClick={() => { setShowAdd(true); setAddStatus(null) }}
